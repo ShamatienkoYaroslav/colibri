@@ -8,7 +8,8 @@
   "scripts": {
     "clean": "node ./node_modules/rimraf/bin dist",
     "dev:build": "yarn run clean && node ./node_modules/webpack/bin/webpack.js -w",
-    "dev": "NODE_ENV=development nodemon dist/index.bundle.js"
+    "dev": "NODE_ENV=development nodemon dist/index.bundle.js",
+    "prod": "NODE_ENV=production node dist/index.bundle.js"
   },
   "devDependencies": {
     "babel-core": "^6.25.0",
@@ -40,6 +41,7 @@
     "passport-jwt": "^2.2.1",
     "passport-local": "^1.0.0",
     "slug": "^0.9.1",
+    "uuid": "^3.1.0",
     "validator": "^7.0.0"
   }
 }
