@@ -24,6 +24,7 @@ const defaultConfig = {
   PORT: process.env.PORT || 5000,
   CRYPTO_ALGORITM: 'aes-256-ctr',
   CRYPTO_PASSWORD: 'wildwolf',
+  DOCKER_SOCKET: '/var/run/docker.sock',
 };
 
 function envConfig(env) {

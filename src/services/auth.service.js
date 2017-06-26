@@ -10,9 +10,12 @@ const localOpts = {
   usernameField: 'user',
 };
 
-const localStrategy = new LocalStrategy(localOpts, (user, password, done) => {
+const localStrategy = new LocalStrategy(localOpts, (name, password, done) => {
   try {
-    if (!User.checkUser(user, password)) {
+    const user = User.findByName(name).value();
+    if (!user) {
+      return done(null, false);
+    } else if (!User.authenticateUser(user, password)) {
       return done(null, false);
     }
     return done(null, user);
@@ -27,11 +30,11 @@ const jwtOpts = {
   secretOrKey: constants.JWT_SECRET,
 };
 
-const jwtStrategy = new JWTStrategy(jwtOpts, async (payload, done) => {
+const jwtStrategy = new JWTStrategy(jwtOpts, (payload, done) => {
   try {
-    const user = payload.user;
+    const user = User.findById(payload.id).value();
 
-    if (!User.checkUser(user)) {
+    if (!user) {
       return done(null, false);
     }
 

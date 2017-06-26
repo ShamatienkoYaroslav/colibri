@@ -1,5 +1,13 @@
 import User from './model';
 
+export const all = (req, res) => {
+  try {
+    res.status(200).json(User.getUsers());
+  } catch (e) {
+    res.status(400).json(e);
+  }
+};
+
 export const login = (req, res) => {
   try {
     res.status(200).json(User.loginUser(req.user));
@@ -19,6 +27,14 @@ export const create = (req, res) => {
 export const change = (req, res) => {
   try {
     res.status(200).json(User.changeUser(req.params.id, req.body));
+  } catch (e) {
+    res.status(400).json(e);
+  }
+};
+
+export const remove = (req, res) => {
+  try {
+    res.status(200).json(User.removeUser(req.params.id));
   } catch (e) {
     res.status(400).json(e);
   }

@@ -1,12 +1,15 @@
 import jwt from 'jsonwebtoken';
 import uuid from 'uuid';
+import slug from 'slug';
 
 import { constants, database } from '../../config';
 import { crypt } from '../../utils';
 
 const db = database();
 
-const createToken = user => (jwt.sign({ user }, constants.JWT_SECRET));
+const TABLE = 'users';
+
+const createToken = id => (jwt.sign({ id }, constants.JWT_SECRET));
 
 export default class User {
   constructor(args) {
@@ -14,10 +17,23 @@ export default class User {
     this.name = args.name;
     this.password = crypt.encrypt(args.password);
     this.role = (args.role) ? args.role : 'user';
+    this.slug = slug(args.name);
+  }
+
+  static getUsers() {
+    return db.get(TABLE).value();
+  }
+
+  static findById(id) {
+    return db.get(TABLE).find({ id });
+  }
+
+  static findByName(name) {
+    return db.get(TABLE).find({ name });
   }
 
   static createUser(args) {
-    const users = db.get('users');
+    const users = db.get(TABLE);
 
     const userDb = users.find({ name: args.name }).value();
     if (userDb) {
@@ -29,47 +45,61 @@ export default class User {
     if (messages.length === 0) {
       user = user.toJSON();
       users.push(user).write();
-
       return { user, messages };
     }
-
     return { user: {}, messages };
   }
 
   static changeUser(id, args) {
-    const userDb = db.get('users').find({ id });
-    if (userDb) {
-      let user = new User({ ...args, id });
+    const userDb = User.findById(id);
+    if (userDb.value()) {
+      const user = new User({ ...args, id });
       const messages = user.validate();
       if (messages.length === 0) {
-        user = userDb.assign({ ...user.toJSON() }).write();
-
-        return { user, messages };
+        return {
+          user: userDb.assign({ ...user.toJSON() }).write(),
+          messages,
+        };
       }
       return { user: {}, messages };
     }
     return { user: {}, messages: ['No such user with this id'] };
   }
 
-  static checkUser(name, password = null) {
-    const user = db.get('users')
+  static removeUser(id) {
+    const messages = [];
+    const user = User.findById(id).value();
+    if (!user) {
+      messages.push('No such template with this id');
+    }
+    return {
+      secusses: db.get(TABLE).remove({ id }).write().length === 1,
+      messages,
+    };
+  }
+
+  static checkUser(name, password) {
+    const user = db.get(TABLE)
       .find({ name })
       .value();
 
     if (!user) {
       return false;
-    } else if (password !== null && crypt.decrypt(user.password) !== password) {
+    } else if (crypt.decrypt(user.password) !== password) {
       return false;
     }
     return true;
   }
 
-  static loginUser(name) {
-    const user = db.get('users').find({ name }).value();
+  static loginUser(user) {
     return {
       user,
-      token: createToken(name),
+      token: `JWT ${createToken(user.id)}`,
     };
+  }
+
+  static authenticateUser(user, password) {
+    return crypt.decrypt(user.password) === password;
   }
 
   validate() {

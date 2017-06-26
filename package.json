@@ -29,11 +29,10 @@
   "dependencies": {
     "body-parser": "^1.17.2",
     "compression": "^1.6.2",
+    "dockerode": "^2.5.0",
     "express": "^4.15.3",
-    "express-validation": "^1.0.2",
     "fs-extra": "^3.0.1",
     "helmet": "^3.6.1",
-    "joi": "^10.6.0",
     "jsonwebtoken": "^7.4.1",
     "lowdb": "^0.16.2",
     "morgan": "^1.8.2",
@@ -41,7 +40,6 @@
     "passport-jwt": "^2.2.1",
     "passport-local": "^1.0.0",
     "slug": "^0.9.1",
-    "uuid": "^3.1.0",
-    "validator": "^7.0.0"
+    "uuid": "^3.1.0"
   }
 }
