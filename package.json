@@ -33,6 +33,7 @@
     "express": "^4.15.3",
     "fs-extra": "^3.0.1",
     "helmet": "^3.6.1",
+    "jsftp": "^2.0.0",
     "jsonwebtoken": "^7.4.1",
     "lowdb": "^0.16.2",
     "morgan": "^1.8.2",

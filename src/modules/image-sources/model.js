@@ -23,6 +23,7 @@ class ImageSource {
     this.port = args.port;
     this.user = args.user;
     this.password = crypt.encrypt(args.password);
+    this.filename = args.filename;
   }
 
   static getImageSources() {
@@ -94,7 +95,10 @@ class ImageSource {
       messages.push('User is required!');
     }
     if (!this.password) {
-      messages.push('password is required!');
+      messages.push('Password is required!');
+    }
+    if (!this.filename) {
+      messages.push('Filename is required!');
     }
     return messages;
   }
@@ -109,6 +113,7 @@ class ImageSource {
       port: this.port,
       user: this.user,
       password: this.password,
+      filename: this.filename,
     };
   }
 }

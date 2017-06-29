@@ -2,8 +2,11 @@
 
 import uuid from 'uuid';
 import slug from 'slug';
+import JSFtp from 'jsftp';
+import fs from 'fs';
 
 import { database, docker } from '../../config';
+import { crypt } from '../../utils';
 import ImageSource, { resources } from '../image-sources/model';
 
 const db = database();
@@ -37,7 +40,7 @@ export default class Image {
 
     const imagesDb = images.find({ name: args.name }).value();
     if (imagesDb) {
-      return { user: {}, messages: ['User with this name exists'] };
+      return { user: {}, messages: ['Image with this name exists'] };
     }
 
     let image = new Image({ ...args });
@@ -95,7 +98,7 @@ export default class Image {
       cb(null, { secusses: false, messages: ['No such image with this id'] });
     }
 
-    const source = ImageSource.findById(this.source).value();
+    const source = ImageSource.findById(image.source).value();
     if (source) {
       if (source.resource === resources.FTP) {
         Image.pullImageFromFtp(image, source, cb);
@@ -117,11 +120,34 @@ export default class Image {
   }
 
   static pullImageFromFtp(image, source, cb) {
-    // TODO: decrypt source.password
-    // TODO: fetch binary from ftp local file
-    // TODO: update image
-    // TODO: delete local file
-    cb(null, { secusses: true, messages: [] });
+    const options = {
+      host: source.host,
+      port: source.port,
+      user: source.user,
+      pass: crypt.decrypt(source.password),
+    };
+
+    const ftp = new JSFtp(options);
+
+    const imageFilename = `./data/${image.name}_${image.tag}.tar`;
+    ftp.get(source.filename, imageFilename, async (err) => {
+      if (err) {
+        cb(null, { secusses: false, messages: ['Can\'t fetch file over ftp'] });
+      }
+
+      try {
+        const data = fs.createReadStream(imageFilename);
+        const stream = await docker.importImage(data, {});
+        stream.on('end', () => {
+          console.log(333);
+          // fs.unlinkSync(imageFilename);
+          cb(null, { secusses: true, messages: ['Image was updated'] });
+        });
+      } catch (e) {
+        console.error(e);
+        cb(null, { secusses: false, messages: ['Can\'t build image from file'] });
+      }
+    });
   }
 
   validate() {
@@ -138,6 +164,7 @@ export default class Image {
       name: this.name,
       tag: this.tag,
       slug: this.slug,
+      source: this.source,
     };
   }
 }
