@@ -50,3 +50,11 @@ export const pull = (req, res) => {
     res.status(200).json(payload);
   });
 };
+
+export const refresh = async (req, res) => {
+  try {
+    res.status(200).json(await Image.refreshImages());
+  } catch (e) {
+    res.static(400).json(e);
+  }
+};

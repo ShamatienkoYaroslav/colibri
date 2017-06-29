@@ -10,20 +10,25 @@ const TABLE = 'templates';
 export default class Template {
   constructor(args) {
     this.id = (args.id) ? args.id : uuid();
+    this.name = args.name;
     this.image = args.image;
     this.params = args.params;
     this.slug = slug(args.name);
   }
 
   static getTemplates() {
+    db.read();
     return db.get(TABLE).value();
   }
 
   static findById(id) {
+    db.read();
     return db.get(TABLE).find({ id });
   }
 
   static createTemplate(args) {
+    db.read();
+
     const templates = db.get(TABLE);
 
     const templateDb = templates.find({ name: args.name }).value();
@@ -71,6 +76,9 @@ export default class Template {
 
   validate() {
     const messages = [];
+    if (!this.name) {
+      messages.push('Name is required!');
+    }
     if (!this.image) {
       messages.push('Image is required!');
     }

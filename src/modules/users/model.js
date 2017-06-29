@@ -21,18 +21,23 @@ export default class User {
   }
 
   static getUsers() {
+    db.read();
     return db.get(TABLE).value();
   }
 
   static findById(id) {
+    db.read();
     return db.get(TABLE).find({ id });
   }
 
   static findByName(name) {
+    db.read();
     return db.get(TABLE).find({ name });
   }
 
   static createUser(args) {
+    db.read();
+
     const users = db.get(TABLE);
 
     const userDb = users.find({ name: args.name }).value();
@@ -79,9 +84,7 @@ export default class User {
   }
 
   static checkUser(name, password) {
-    const user = db.get(TABLE)
-      .find({ name })
-      .value();
+    const user = User.findByName(name);
 
     if (!user) {
       return false;

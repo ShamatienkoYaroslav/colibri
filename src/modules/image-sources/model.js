@@ -27,14 +27,18 @@ class ImageSource {
   }
 
   static getImageSources() {
+    db.read();
     return db.get(TABLE).value();
   }
 
   static findById(id) {
+    db.read();
     return db.get(TABLE).find({ id });
   }
 
   static createImageSource(args) {
+    db.read();
+
     const imageSources = db.get(TABLE);
 
     const imageSourcesDb = imageSources.find({ name: args.name }).value();

@@ -4,6 +4,7 @@ import uuid from 'uuid';
 import slug from 'slug';
 import JSFtp from 'jsftp';
 import fs from 'fs';
+import settle from 'promise-settle';
 
 import { database, docker } from '../../config';
 import { crypt } from '../../utils';
@@ -23,21 +24,19 @@ export default class Image {
   }
 
   static getImages() {
-    const result = [];
-    const images = db.get(TABLE);
-    for (const image of images) {
-      result.push(new Image({ ...image }).toJSON());
-    }
-    return result;
+    db.read();
+    return db.get(TABLE).value();
   }
 
   static findById(id) {
+    db.read();
     return db.get(TABLE).find({ id });
   }
 
   static createImage(args) {
-    const images = db.get(TABLE);
+    db.read();
 
+    const images = db.get(TABLE);
     const imagesDb = images.find({ name: args.name }).value();
     if (imagesDb) {
       return { user: {}, messages: ['Image with this name exists'] };
@@ -136,18 +135,42 @@ export default class Image {
       }
 
       try {
-        const data = fs.createReadStream(imageFilename);
-        const stream = await docker.importImage(data, {});
+        const stream = await docker.loadImage(imageFilename);
         stream.on('end', () => {
-          console.log(333);
-          // fs.unlinkSync(imageFilename);
+          fs.unlinkSync(imageFilename);
           cb(null, { secusses: true, messages: ['Image was updated'] });
         });
       } catch (e) {
-        console.error(e);
         cb(null, { secusses: false, messages: ['Can\'t build image from file'] });
       }
     });
+  }
+
+  static async refreshImages() {
+    const inspects = [];
+    const images = Image.getImages();
+    for (const image of images) {
+      const { name, tag } = image;
+      const dockerImage = docker.getImage(`${name}:${tag}`);
+      inspects.push(dockerImage.inspect());
+    }
+
+    if (inspects.length === 0) {
+      return { images: [] };
+    }
+
+    const results = await settle(inspects);
+    const cleanedImages = [];
+    const stImagesDb = [...db.get(TABLE).value()];
+    for (const result of results) {
+      if (!result.isFulfilled()) {
+        const imageDb = stImagesDb[results.indexOf(result)];
+        db.get(TABLE).remove({ id: imageDb.id }).write();
+        cleanedImages.push(imageDb);
+      }
+    }
+
+    return { images: cleanedImages };
   }
 
   validate() {
