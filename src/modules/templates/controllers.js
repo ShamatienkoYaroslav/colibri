@@ -31,3 +31,11 @@ export const remove = (req, res) => {
     res.status(400).json(e);
   }
 };
+
+export const refresh = (req, res) => {
+  try {
+    res.status(200).json(Template.refreshTemplates());
+  } catch (e) {
+    res.status(400).json(e.toString());
+  }
+};

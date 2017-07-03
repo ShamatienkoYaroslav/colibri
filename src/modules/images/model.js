@@ -16,9 +16,9 @@ const TABLE = 'images';
 
 export default class Image {
   constructor(args) {
-    this.id = (args.id) ? args.id : uuid();
+    this.id = args.id || uuid();
     this.name = args.name;
-    this.tag = (args.tag) ? args.tag : 'latest';
+    this.tag = args.tag || 'latest';
     this.slug = slug(`${this.name} ${this.tag}`);
     this.source = args.source || resources.DOCKER_HUB;
   }
@@ -36,8 +36,7 @@ export default class Image {
   static createImage(args) {
     db.read();
 
-    const images = db.get(TABLE);
-    const imagesDb = images.find({ name: args.name }).value();
+    const imagesDb = db.get(TABLE).find({ name: args.name }).value();
     if (imagesDb) {
       return { user: {}, messages: ['Image with this name exists'] };
     }
@@ -46,7 +45,7 @@ export default class Image {
     const messages = image.validate();
     if (messages.length === 0) {
       image = image.toJSON();
-      images.push(image).write();
+      db.get(TABLE).push(image).write();
       return { image, messages };
     }
     return { image: {}, messages };
@@ -68,16 +67,24 @@ export default class Image {
     return { image: {}, messages: ['No such image with this id'] };
   }
 
-  static removeImage(id) {
+  static async removeImage(id) {
     const messages = [];
     const image = Image.findById(id).value();
     if (!image) {
       messages.push('No such image with this id');
     }
-    return {
-      secusses: db.get(TABLE).remove({ id }).write().length === 1,
-      messages,
-    };
+
+    try {
+      const dockerImage = await docker.getImage(`${image.name}:${image.tag}`);
+      await dockerImage.remove();
+
+      return {
+        secusses: db.get(TABLE).remove({ id }).write().length === 1,
+        messages,
+      };
+    } catch (e) {
+      return { secusses: false, messages: ['Can\'t remove image', e.message] };
+    }
   }
 
   static async getInfo(id) {
@@ -141,7 +148,7 @@ export default class Image {
           cb(null, { secusses: true, messages: ['Image was updated'] });
         });
       } catch (e) {
-        cb(null, { secusses: false, messages: ['Can\'t build image from file'] });
+        cb(null, { secusses: false, messages: ['Can\'t build image from file', e.message] });
       }
     });
   }
@@ -161,16 +168,25 @@ export default class Image {
 
     const results = await settle(inspects);
     const cleanedImages = [];
-    const stImagesDb = [...db.get(TABLE).value()];
+    const workingImages = [];
+    const stImagesDb = [...images];
     for (const result of results) {
-      if (!result.isFulfilled()) {
-        const imageDb = stImagesDb[results.indexOf(result)];
-        db.get(TABLE).remove({ id: imageDb.id }).write();
+      const imageDb = stImagesDb[results.indexOf(result)];
+      if (result.isFulfilled()) {
+        workingImages.push(imageDb);
+      } else {
         cleanedImages.push(imageDb);
       }
     }
+    db.set(TABLE, workingImages).write();
 
-    return { images: cleanedImages };
+    return { images: workingImages, cleaned: cleanedImages };
+  }
+
+  static async pruneImages() {
+    const result = await docker.pruneImages();
+    await Image.refreshImages();
+    return { cleaned: result.ImagesDeleted };
   }
 
   validate() {
@@ -182,12 +198,6 @@ export default class Image {
   }
 
   toJSON() {
-    return {
-      id: this.id,
-      name: this.name,
-      tag: this.tag,
-      slug: this.slug,
-      source: this.source,
-    };
+    return { ...this };
   }
 }

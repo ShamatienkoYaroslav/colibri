@@ -15,10 +15,10 @@ const resources = {
 
 class ImageSource {
   constructor(args) {
-    this.id = (args.id) ? (args.id) : uuid();
+    this.id = args.id || uuid();
     this.name = args.name;
     this.slug = slug(args.name);
-    this.resource = (args.resource) ? (args.resource) : resources.DOCKER_HUB;
+    this.resource = args.resource || resources.DOCKER_HUB;
     this.host = args.host;
     this.port = args.port;
     this.user = args.user;
@@ -39,9 +39,7 @@ class ImageSource {
   static createImageSource(args) {
     db.read();
 
-    const imageSources = db.get(TABLE);
-
-    const imageSourcesDb = imageSources.find({ name: args.name }).value();
+    const imageSourcesDb = db.get(TABLE).find({ name: args.name }).value();
     if (imageSourcesDb) {
       return { user: {}, messages: ['User with this name exists'] };
     }
@@ -50,7 +48,7 @@ class ImageSource {
     const messages = imageSource.validate();
     if (messages.length === 0) {
       imageSource = imageSource.toJSON();
-      imageSources.push(imageSource).write();
+      db.get(TABLE).push(imageSource).write();
       return { imageSource, messages };
     }
     return { imageSource: {}, messages };
@@ -116,7 +114,6 @@ class ImageSource {
       host: this.host,
       port: this.port,
       user: this.user,
-      password: this.password,
       filename: this.filename,
     };
   }

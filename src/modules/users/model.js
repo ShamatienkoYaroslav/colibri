@@ -13,10 +13,10 @@ const createToken = id => (jwt.sign({ id }, constants.JWT_SECRET));
 
 export default class User {
   constructor(args) {
-    this.id = (args.id) ? args.id : uuid();
+    this.id = args.id || uuid();
     this.name = args.name;
     this.password = crypt.encrypt(args.password);
-    this.role = (args.role) ? args.role : 'user';
+    this.role = args.role || 'user';
     this.slug = slug(args.name);
   }
 
@@ -38,9 +38,7 @@ export default class User {
   static createUser(args) {
     db.read();
 
-    const users = db.get(TABLE);
-
-    const userDb = users.find({ name: args.name }).value();
+    const userDb = db.get(TABLE).find({ name: args.name }).value();
     if (userDb) {
       return { user: {}, messages: ['User with this name exists'] };
     }
@@ -49,7 +47,7 @@ export default class User {
     const messages = user.validate();
     if (messages.length === 0) {
       user = user.toJSON();
-      users.push(user).write();
+      db.get(TABLE).push(user).write();
       return { user, messages };
     }
     return { user: {}, messages };
@@ -120,8 +118,8 @@ export default class User {
     return {
       id: this.id,
       name: this.name,
-      password: this.password,
       role: this.role,
+      slug: this.slug,
     };
   }
 }

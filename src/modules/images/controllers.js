@@ -24,9 +24,9 @@ export const change = (req, res) => {
   }
 };
 
-export const remove = (req, res) => {
+export const remove = async (req, res) => {
   try {
-    res.status(200).json(Image.removeImage(req.params.id));
+    res.status(200).json(await Image.removeImage(req.params.id));
   } catch (e) {
     res.status(400).json(e);
   }
@@ -54,6 +54,14 @@ export const pull = (req, res) => {
 export const refresh = async (req, res) => {
   try {
     res.status(200).json(await Image.refreshImages());
+  } catch (e) {
+    res.static(400).json(e);
+  }
+};
+
+export const prune = async (req, res) => {
+  try {
+    res.status(200).json(await Image.pruneImages());
   } catch (e) {
     res.static(400).json(e);
   }

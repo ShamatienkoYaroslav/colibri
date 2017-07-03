@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { all, create, change, remove, info, pull, refresh, prune } from './controllers';
+import { all, create, change, remove, refresh, prune } from './controllers';
 import { authJwt } from '../../services/auth.service';
 
 const router = new Router();
@@ -11,7 +11,5 @@ router.get('/refresh', authJwt, refresh);
 router.get('/prune', authJwt, prune);
 router.put('/:id', authJwt, change);
 router.delete('/:id', authJwt, remove);
-router.get('/:id', authJwt, info);
-router.get('/:id/pull', authJwt, pull);
 
 export default router;

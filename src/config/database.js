@@ -16,7 +16,14 @@ const user = {
 fse.ensureFileSync(constants.DATA_FILE);
 
 const db = low(constants.DATA_FILE);
-db.defaults({ users: [user], images: [], templates: [], imageSources: [] }).write();
+db.defaults({
+  users: [user],
+  images: [],
+  templates: [],
+  imageSources: [],
+  containers: [],
+  volumes: [],
+}).write();
 
 console.log('DB is running');
 
