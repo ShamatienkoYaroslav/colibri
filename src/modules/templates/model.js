@@ -21,9 +21,12 @@ export default class Template {
     this.slug = slug(args.name);
   }
 
-  static getTemplates() {
+  static getTemplates(showAll = true) {
     db.read();
-    return db.get(TABLE).value();
+    if (showAll) {
+      return db.get(TABLE).value();
+    }
+    return db.get(TABLE).filter({ hide: false }).value();
   }
 
   static findById(id) {
@@ -37,6 +40,11 @@ export default class Template {
     const templateDb = db.get(TABLE).find({ name: args.name }).value();
     if (templateDb) {
       return { template: {}, messages: ['Template with this name exists'] };
+    }
+
+    const image = Image.findById(args.image);
+    if (!image.value()) {
+      return { template: {}, messages: ['Can\'t find image'] };
     }
 
     let template = new Template({ ...args });
@@ -79,7 +87,6 @@ export default class Template {
 
   static refreshTemplates() {
     const workingTemplates = [];
-    const cleanedTemplates = [];
     const images = Image.getImages();
     const templates = Template.getTemplates();
     for (const template of templates) {
@@ -92,21 +99,20 @@ export default class Template {
 
       if (imageUsed) {
         workingTemplates.push(template);
-      } else {
-        cleanedTemplates.push(template);
       }
     }
     db.set(TABLE, workingTemplates).write();
 
-    return { templates: workingTemplates, cleaned: cleanedTemplates };
+    return { templates: workingTemplates };
   }
 
   static getBinds(template) {
     const binds = [];
     for (let i = 0; i < template.volumes.length; i += 1) {
-      const volume = Volume.findById(template.volumes[i]).value();
+      const templateVolume = template.volumes[i];
+      const volume = Volume.findById(templateVolume.volume).value();
       if (volume) {
-        binds.push(Volume.getBinds(volume));
+        binds.push(Volume.getBinds(volume, templateVolume.internalDir, templateVolume.readOnly));
       }
     }
     return binds;

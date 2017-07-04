@@ -2,7 +2,6 @@
 
 import uuid from 'uuid';
 import slug from 'slug';
-import settle from 'promise-settle';
 
 import { database, docker } from '../../config';
 import Template from '../templates/model';
@@ -12,10 +11,10 @@ const db = database();
 
 const TABLE = 'containers';
 
-const containerStatus = {
+const ContainerStatus = {
   RUNNIG: 'runnig',
   STOPPED: 'stopped',
-  EXISTS: 'exists',
+  EXISTS: 'created',
   LACKING: 'lacking',
 };
 
@@ -24,14 +23,20 @@ export default class Container {
     this.id = args.id || uuid();
     this.name = args.name;
     this.template = args.template;
-    this.status = containerStatus.LACKING;
-    this.containerId = '';
+    this.status = args.status || ContainerStatus.LACKING;
+    this.containerId = args.containerId || '';
+    this.auto = args.auto || false; // created from host
+    this.image = args.image || '';
     this.slug = slug(this.name);
+    this.hide = args.hide || false;
   }
 
-  static getContainers() {
+  static getContainers(showAll = true) {
     db.read();
-    return db.get(TABLE).value();
+    if (showAll) {
+      return db.get(TABLE).value();
+    }
+    return db.get(TABLE).filter({ hide: false }).value();
   }
 
   static findById(id) {
@@ -60,6 +65,7 @@ export default class Container {
       if (!image) {
         return { container: {}, messages: ['Can\'t find image'] };
       }
+      container.image = template.image;
 
       try {
         const opts = {
@@ -72,12 +78,31 @@ export default class Container {
         };
         const containerDocker = await docker.createContainer(opts);
 
-        container.status = containerStatus.EXISTS;
+        container.status = ContainerStatus.EXISTS;
         container.containerId = containerDocker.id;
       } catch (e) {
         return { container: {}, messages: ['Can\'t create container', e.message] };
       }
 
+      db.get(TABLE).push(container).write();
+
+      return { container, messages };
+    }
+    return { container: {}, messages };
+  }
+
+  static createContainerFromHost(args) {
+    db.read();
+
+    const containerDb = db.get(TABLE).find({ name: args.name }).value();
+    if (containerDb) {
+      return { container: {}, messages: ['Container with this name exists'] };
+    }
+
+    let container = new Container({ ...args, auto: true });
+    const messages = container.validate();
+    if (messages.length === 0) {
+      container = container.toJSON();
       db.get(TABLE).push(container).write();
 
       return { container, messages };
@@ -108,16 +133,16 @@ export default class Container {
     }
 
     const { status, containerId } = container;
-    if (status === containerStatus.RUNNIG) {
+    if (status === ContainerStatus.RUNNIG) {
       return { container, messages: ['Container is already running'] };
-    } else if (!status || status === containerStatus.LACKING) {
+    } else if (!status || status === ContainerStatus.LACKING) {
       return { container, messages: ['Container isn\'t created on host'] };
     }
 
     try {
       await docker.getContainer(containerId).start();
 
-      container.status = containerStatus.RUNNIG;
+      container.status = ContainerStatus.RUNNIG;
       db.get(TABLE).find({ id }).assign(container).write();
 
       return { container, messages: [] };
@@ -133,16 +158,16 @@ export default class Container {
     }
 
     const { status, containerId } = container;
-    if (status === containerStatus.STOPPED) {
+    if (status === ContainerStatus.STOPPED) {
       return { container, messages: ['Container is already stopped'] };
-    } else if (!status || status === containerStatus.LACKING) {
+    } else if (!status || status === ContainerStatus.LACKING) {
       return { container, messages: ['Container isn\'t created on host'] };
     }
 
     try {
       await docker.getContainer(containerId).stop();
 
-      container.status = containerStatus.STOPPED;
+      container.status = ContainerStatus.STOPPED;
       db.get(TABLE).find({ id }).assign(container).write();
 
       return { container, messages: [] };
@@ -172,32 +197,26 @@ export default class Container {
   }
 
   static async refreshContainers() {
-    const inspects = [];
-    const cleanedContainers = [];
-    const workingContainers = [];
+    const { messages } = await Container.createContainersFromHost();
+
+    const usedContainers = [];
     const containers = Container.getContainers();
+    const dockerContainers = await docker.listContainers({ all: true });
     for (const container of containers) {
-      const dockerContainer = docker.getContainer(container.containerId);
-      inspects.push(dockerContainer.inspect());
-    }
-
-    if (inspects.length === 0) {
-      return { images: [] };
-    }
-
-    const results = await settle(inspects);
-    const stContainersDb = [...containers];
-    for (const result of results) {
-      const containerDb = stContainersDb[results.indexOf(result)];
-      if (result.isFulfilled()) {
-        workingContainers.push(containerDb);
-      } else {
-        cleanedContainers.push(containerDb);
+      let usedContainer = false;
+      for (const dockerContainer of dockerContainers) {
+        if (`/${container.slug}` === dockerContainer.Names[0]) {
+          usedContainer = true;
+          break;
+        }
+      }
+      if (usedContainer) {
+        usedContainers.push(container);
       }
     }
-    db.set(TABLE, workingContainers).write();
+    db.set(TABLE, usedContainers).write();
 
-    return { containers: workingContainers, cleaned: cleanedContainers };
+    return { containers: usedContainers, messages };
   }
 
   static async pruneContainers() {
@@ -206,12 +225,32 @@ export default class Container {
     return { cleaned: result.ContainersDeleted };
   }
 
+  static async createContainersFromHost() {
+    db.read();
+
+    const messages = [];
+    const dockerContainers = await docker.listContainers({ all: true });
+    for (const dockerContainer of dockerContainers) {
+      const name = dockerContainer.Names[0].split('/')[1].replace(/-/g, ' ');
+      const result = Container.createContainerFromHost({
+        name,
+        image: dockerContainer.Image,
+        status: dockerContainer.State,
+        containerId: dockerContainer.Id,
+      });
+      if (result.messages.length === 0) {
+        messages.concat(result.messages);
+      }
+    }
+    return { messages };
+  }
+
   validate() {
     const messages = [];
     if (!this.name) {
       messages.push('Name is required!');
     }
-    if (!this.template) {
+    if (!this.auto && !this.template) {
       messages.push('Template is required!');
     }
     return messages;

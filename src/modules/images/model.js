@@ -4,7 +4,6 @@ import uuid from 'uuid';
 import slug from 'slug';
 import JSFtp from 'jsftp';
 import fs from 'fs';
-import settle from 'promise-settle';
 
 import { database, docker } from '../../config';
 import { crypt } from '../../utils';
@@ -23,9 +22,12 @@ export default class Image {
     this.source = args.source || resources.DOCKER_HUB;
   }
 
-  static getImages() {
+  static getImages(showAll = true) {
     db.read();
-    return db.get(TABLE).value();
+    if (showAll) {
+      return db.get(TABLE).value();
+    }
+    return db.get(TABLE).filter({ hide: false }).value();
   }
 
   static findById(id) {
@@ -154,39 +156,53 @@ export default class Image {
   }
 
   static async refreshImages() {
-    const inspects = [];
+    const { messages } = await Image.createImagesFromHost();
+
+    const usedImages = [];
     const images = Image.getImages();
+    const dockerImages = await docker.listImages();
     for (const image of images) {
-      const { name, tag } = image;
-      const dockerImage = docker.getImage(`${name}:${tag}`);
-      inspects.push(dockerImage.inspect());
-    }
-
-    if (inspects.length === 0) {
-      return { images: [] };
-    }
-
-    const results = await settle(inspects);
-    const cleanedImages = [];
-    const workingImages = [];
-    const stImagesDb = [...images];
-    for (const result of results) {
-      const imageDb = stImagesDb[results.indexOf(result)];
-      if (result.isFulfilled()) {
-        workingImages.push(imageDb);
-      } else {
-        cleanedImages.push(imageDb);
+      let usedImage = false;
+      for (const dockerImage of dockerImages) {
+        if (`${image.name}:${image.tag}` === dockerImage.RepoTags[0]) {
+          usedImage = true;
+          break;
+        }
+      }
+      if (usedImage) {
+        usedImages.push(image);
       }
     }
-    db.set(TABLE, workingImages).write();
+    db.set(TABLE, usedImages).write();
 
-    return { images: workingImages, cleaned: cleanedImages };
+    return { images: usedImages, messages };
   }
 
   static async pruneImages() {
     const result = await docker.pruneImages();
     await Image.refreshImages();
     return { cleaned: result.ImagesDeleted };
+  }
+
+  static async createImagesFromHost() {
+    const images = [];
+    const messages = [];
+    const dockerImages = await docker.listImages();
+    for (const dockerImage of dockerImages) {
+      const repoTags = dockerImage.RepoTags[0].split(':');
+      const name = repoTags[0];
+      const tag = repoTags[1];
+      const image = db.get(TABLE).find({ slug: slug(`${name} ${tag}`) }).value();
+      if (!image) {
+        const result = Image.createImage({ id: dockerImage.RepoTags[0], name, tag });
+        if (result.messages.length === 0) {
+          messages.concat(result.messages);
+        } else {
+          images.push(result.image);
+        }
+      }
+    }
+    return { images, messages };
   }
 
   validate() {

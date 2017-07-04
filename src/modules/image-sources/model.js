@@ -24,11 +24,15 @@ class ImageSource {
     this.user = args.user;
     this.password = crypt.encrypt(args.password);
     this.filename = args.filename;
+    this.hide = args.hide || false;
   }
 
-  static getImageSources() {
+  static getImageSources(showAll = true) {
     db.read();
-    return db.get(TABLE).value();
+    if (showAll) {
+      return db.get(TABLE).value();
+    }
+    return db.get(TABLE).filter({ hide: false }).value();
   }
 
   static findById(id) {

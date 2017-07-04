@@ -9,6 +9,12 @@ const db = database();
 
 const TABLE = 'users';
 
+const Roles = {
+  ADMIN: 'admin',
+  CHANGE: 'change',
+  READ: 'read',
+};
+
 const createToken = id => (jwt.sign({ id }, constants.JWT_SECRET));
 
 export default class User {
@@ -16,7 +22,7 @@ export default class User {
     this.id = args.id || uuid();
     this.name = args.name;
     this.password = crypt.encrypt(args.password);
-    this.role = args.role || 'user';
+    this.role = args.role || Roles.READ;
     this.slug = slug(args.name);
   }
 
@@ -46,8 +52,9 @@ export default class User {
     let user = new User({ ...args });
     const messages = user.validate();
     if (messages.length === 0) {
+      const password = user.password;
       user = user.toJSON();
-      db.get(TABLE).push(user).write();
+      db.get(TABLE).push({ ...user, password }).write();
       return { user, messages };
     }
     return { user: {}, messages };
@@ -101,6 +108,14 @@ export default class User {
 
   static authenticateUser(user, password) {
     return crypt.decrypt(user.password) === password;
+  }
+
+  static userIsAdmin(user) {
+    return user.role === Roles.ADMIN;
+  }
+
+  static userCanChange(user) {
+    return user.role === Roles.ADMIN || user.role === Roles.CHANGE;
   }
 
   validate() {

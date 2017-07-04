@@ -1,3 +1,5 @@
+/* eslint-disable no-restricted-syntax */
+
 import uuid from 'uuid';
 import slug from 'slug';
 
@@ -7,7 +9,7 @@ const db = database();
 
 const TABLE = 'volumes';
 
-const types = {
+const Types = {
   BIND: 'bind',
   VOLUME: 'volume',
 };
@@ -16,16 +18,17 @@ export default class Volume {
   constructor(args) {
     this.id = args.id || uuid();
     this.name = args.name;
-    this.type = args.type || types.BIND;
-    this.readOnly = args.readOnly || false;
-    this.hostDir = args.hostDir;
-    this.internalDir = args.internalDir;
+    this.type = args.type || Types.BIND;
+    this.hostDir = args.hostDir || '';
     this.slug = slug(this.name);
   }
 
-  static getVolumes() {
+  static getVolumes(showAll = true) {
     db.read();
-    return db.get(TABLE).value();
+    if (showAll) {
+      return db.get(TABLE).value();
+    }
+    return db.get(TABLE).filter({ hide: false }).value();
   }
 
   static findById(id) {
@@ -46,7 +49,7 @@ export default class Volume {
     if (messages.length === 0) {
       volume = volume.toJSON();
 
-      if (volume.type === types.VOLUME) {
+      if (volume.type === Types.VOLUME) {
         try {
           docker.createVolume({ name: volume.name });
         } catch (e) {
@@ -64,7 +67,7 @@ export default class Volume {
     const volumeDb = Volume.findById(id);
     if (volumeDb.value()) {
       let volume = volumeDb.value();
-      if (volume.type === types.VOLUME) {
+      if (volume.type === Types.VOLUME) {
         return { volume, messages: ["Can't change volume with type \"volume\""] };
       }
 
@@ -87,7 +90,7 @@ export default class Volume {
     if (!volume) {
       messages.push('No such volume with this id');
     }
-    if (volume.type === types.VOLUME) {
+    if (volume.type === Types.VOLUME) {
       try {
         const dockerVolume = await docker.getVolume(volume.name);
         await dockerVolume.remove();
@@ -107,21 +110,29 @@ export default class Volume {
   }
 
   static async refreshVolumes() {
-    // const volumes = Volume.getVolumes();
-    // let dockerVolumes = await docker.listVolumes();
-    // dockerVolumes = dockerVolumes.Volumes;
-    // for (const dockerVolume of dockerVolumes) {
-    //   for (let i = 0; i < volumes.length;) {
-    //     if (volumes[i].name === dockerVolume.Name) {
-    //       volumes.splice(i, 1);
-    //     } else {
-    //       i += 1;
-    //     }
-    //   }
-    // }
-    // db.set(TABLE, volumes).write();
-    //
-    // return { volumes };
+    const { messages } = await Volume.createVolumesFromHost();
+
+    const usedVolumes = [];
+    const volumes = Volume.getVolumes();
+    let dockerVolumes = await docker.listVolumes();
+    dockerVolumes = dockerVolumes.Volumes;
+    for (const volume of volumes) {
+      let usedVolume = false;
+      if (volume.type === Types.VOLUME) {
+        for (const dockerVolume of dockerVolumes) {
+          if (volume.name === dockerVolume.Name) {
+            usedVolume = true;
+            break;
+          }
+        }
+      }
+      if (usedVolume) {
+        usedVolumes.push(volume);
+      }
+    }
+    db.set(TABLE, usedVolumes).write();
+
+    return { volumes: usedVolumes, messages };
   }
 
   static async pruneVolumes() {
@@ -130,13 +141,36 @@ export default class Volume {
     return { cleaned: result.VolumesDeleted };
   }
 
-  static getBinds(volume) {
-    let result = '';
-    result = `${volume.hostDir}:${volume.internalDir}`;
-    if (volume.type === types.VOLUME) {
-      result = `${volume.name}:${volume.internalDir}`;
+  static async createVolumesFromHost() {
+    const volumes = [];
+    const messages = [];
+    let dockerVolumes = await docker.listVolumes();
+    dockerVolumes = dockerVolumes.Volumes;
+    for (const dockerVolume of dockerVolumes) {
+      const volume = db.get(TABLE).find({ name: dockerVolume.Name }).value();
+      if (!volume) {
+        const args = {
+          name: dockerVolume.Name,
+          type: Types.VOLUME,
+        };
+        const result = Volume.createVolume(args);
+        if (result.messages.length === 0) {
+          messages.concat(result.messages);
+        } else {
+          volumes.push(result.volume);
+        }
+      }
     }
-    if (volume.readOnly) {
+    return { volumes, messages };
+  }
+
+  static getBinds(volume, internalDir, readOnly) {
+    let result = '';
+    result = `${volume.hostDir}:${internalDir}`;
+    if (volume.type === Types.VOLUME) {
+      result = `${volume.name}:${internalDir}`;
+    }
+    if (readOnly) {
       result += ':ro';
     }
     return result;
@@ -147,11 +181,8 @@ export default class Volume {
     if (!this.name) {
       messages.push('Name is required!');
     }
-    if (!this.hostDir) {
+    if (this.type === Types.BIND && !this.hostDir) {
       messages.push('Host directory is required!');
-    }
-    if (!this.internalDir) {
-      messages.push('Internal directory is required!');
     }
     return messages;
   }
