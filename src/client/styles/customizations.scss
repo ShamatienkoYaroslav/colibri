@@ -1,0 +1,23 @@
+$body-bg: #FFF;
+
+$navbar-default-bg: #193c4f;
+
+$brand-primary: #EA5455;
+
+$link-color: $brand-primary;
+$link-hover-color: darken($link-color, 10%);
+
+$navbar-default-link-color:  darken(white, 10%);
+$navbar-default-link-hover-color: $brand-primary;
+$navbar-default-link-active-color: $brand-primary;
+$navbar-default-link-active-bg: $navbar-default-bg;
+
+$navbar-default-brand-color: $brand-primary;
+$navbar-default-brand-hover-color: darken($brand-primary, 10%);
+
+$btn-primary-color: darken($brand-primary, 35%);
+$btn-primary-bg: $brand-primary;
+$btn-primary-border: darken($btn-primary-bg, 5%);
+
+$table-bg: white;
+$table-bg-hover: $brand-primary;

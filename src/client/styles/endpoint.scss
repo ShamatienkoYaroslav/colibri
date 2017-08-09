@@ -1,0 +1,43 @@
+body {
+  margin: 0;
+  padding-top: 70px;
+}
+
+.navbar {
+  border: 0;
+}
+
+.login-page {
+  margin-left: 40%;
+  margin-right: 40%;
+
+  h2 {
+    text-align: center;
+  }
+
+  form {
+    margin-top: 20%;
+
+    .btn {
+      width: 100%;
+    }
+  }
+}
+
+.page-title {
+  color: $brand-primary;
+}
+
+.tab-content {
+  .table-responsive {
+    border-top-width: 0;
+  }
+
+  table {
+    border-top-width: 0;
+  }
+}
+
+.blank-place {
+  padding-bottom: 20px;
+}
