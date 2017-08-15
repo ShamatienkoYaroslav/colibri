@@ -41,6 +41,14 @@ export default class User {
     return db.get(TABLE).find({ name });
   }
 
+  static getUser(id) {
+    const user = User.findById(id).value();
+    if (user) {
+      return { user, messages: [] };
+    }
+    return { user: {}, messages: ['No such user with this id'] };
+  }
+
   static createUser(args) {
     db.read();
 

@@ -1,9 +1,11 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { FormGroup, ControlLabel, FormControl, Button, HelpBlock } from 'react-bootstrap';
+import { Grid, Col, Row, FormGroup, ControlLabel, FormControl, Button, HelpBlock } from 'react-bootstrap';
 
 import { login, fetchUsers } from '../actions/users';
+
+import logo from '../images/logo.svg';
 
 class LoginPage extends Component {
   constructor(props) {
@@ -58,36 +60,44 @@ class LoginPage extends Component {
     }
 
     return (
-      <div className="login-page">
-        <h2>Colibri</h2>
+      <Grid>
+        <Row>
+          <Col sm={4} smOffset={4}>
+            <div className="login-page">
+              <img src={logo} />    
 
-        <form onSubmit={this.authorizeUser}>
-          <FormGroup validationState={validationState}>
-            <ControlLabel>User</ControlLabel>
-            <FormControl
-              componentClass="select"
-              placeholder="User"
-              name="user"
-              value={this.state.user}
-              onChange={this.handleInputChange}
-            >
-              { usersToSelect }
-            </FormControl>
-          </FormGroup>
-          <FormGroup validationState={validationState}>
-            <ControlLabel>Password</ControlLabel>
-            <FormControl
-              type="password"
-              placeholder="Password"
-              name="password"
-              onChange={this.handleInputChange}
-            />
-            <HelpBlock>{helpText}</HelpBlock>
-          </FormGroup>
+              <h2>Colibri</h2>
 
-          <Button bsStyle="primary" type="submit">Login</Button>
-        </form>
-      </div>
+              <form onSubmit={this.authorizeUser}>
+                <FormGroup validationState={validationState}>
+                  <ControlLabel>User</ControlLabel>
+                  <FormControl
+                    componentClass="select"
+                    placeholder="User"
+                    name="user"
+                    value={this.state.user}
+                    onChange={this.handleInputChange}
+                  >
+                    { usersToSelect }
+                  </FormControl>
+                </FormGroup>
+                <FormGroup validationState={validationState}>
+                  <ControlLabel>Password</ControlLabel>
+                  <FormControl
+                    type="password"
+                    placeholder="Password"
+                    name="password"
+                    onChange={this.handleInputChange}
+                  />
+                  <HelpBlock>{helpText}</HelpBlock>
+                </FormGroup>
+      
+                <Button bsStyle="primary" type="submit">Login</Button>
+              </form>
+            </div>
+          </Col>
+        </Row>
+      </Grid>
     );
   }
 }

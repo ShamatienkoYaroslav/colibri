@@ -65,7 +65,7 @@ module.exports = [
           test: /\.scss$/,
           use: ExtractTextPlugin.extract({
             fallback: 'style-loader',
-            use: ['css-loader', 'sass-loader'],
+            use: ['css-loader', 'resolve-url-loader', 'sass-loader?sourceMap'],
             publicPath: '/dist',
           }),
         },
@@ -85,6 +85,10 @@ module.exports = [
           ],
         },
         {
+          test: /\.(woff|woff2|ttf|eot)/,
+          use: 'url-loader?limit=100000&name=[name].[ext]',
+        },
+        {
           test: /\.(jpe?g|png|gif|svg)$/i,
           use: [
             'file-loader?name=images/[name].[ext]',
@@ -102,6 +106,9 @@ module.exports = [
       }),
       extractText,
       new webpack.NamedModulesPlugin(),
+      new webpack.DefinePlugin({
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+      }),
     ],
   },
 ];

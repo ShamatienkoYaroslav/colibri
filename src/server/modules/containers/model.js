@@ -27,7 +27,7 @@ export default class Container {
     this.containerId = args.containerId || '';
     this.auto = args.auto || false; // created from host
     this.image = args.image || '';
-    this.slug = slug(this.name);
+    this.slug = slug(args.name);
     this.hide = args.hide || false;
   }
 
@@ -42,6 +42,14 @@ export default class Container {
   static findById(id) {
     db.read();
     return db.get(TABLE).find({ id });
+  }
+
+  static getContainer(id) {
+    const container = Container.findById(id).value();
+    if (container) {
+      return { container, messages: [] };
+    }
+    return { container: {}, messages: ['No such container with this id'] };
   }
 
   static async createContainer(args) {
@@ -71,6 +79,7 @@ export default class Container {
         const opts = {
           Image: `${image.name}:${image.tag}`,
           name: container.slug,
+          ExposedPorts: template.config.ExposedPorts,
           HostConfig: {
             ...template.config.HostConfig,
             Binds: Template.getBinds(template),
@@ -196,8 +205,12 @@ export default class Container {
     }
   }
 
-  static async refreshContainers() {
-    const { messages } = await Container.createContainersFromHost();
+  static async refreshContainers(createFromHost = true) {
+    let messages = [];
+    if (createFromHost) {
+      const result = await Container.createContainersFromHost();
+      messages = result.messages;
+    }
 
     const usedContainers = [];
     const containers = Container.getContainers();
@@ -220,9 +233,9 @@ export default class Container {
   }
 
   static async pruneContainers() {
-    const result = await docker.pruneContainers();
-    await Container.efreshContainers();
-    return { cleaned: result.ContainersDeleted };
+    await docker.pruneContainers();
+    const result = await Container.refreshContainers(false);
+    return { containers: result.containers, messages: result.messages };
   }
 
   static async createContainersFromHost() {

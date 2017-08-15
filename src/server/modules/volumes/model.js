@@ -17,7 +17,18 @@ const Types = {
 export default class Volume {
   constructor(args) {
     this.id = args.id || uuid();
-    this.name = args.name;
+    if (args.type === Types.VOLUME) {
+      this.name = slug(args.name, {
+        replacement: '_',
+        symbols: true,
+        remove: null,
+        lower: true,
+        charmap: slug.charmap,
+        multicharmap: slug.multicharmap,
+      });
+    } else {
+      this.name = args.name;
+    }
     this.type = args.type || Types.BIND;
     this.hostDir = args.hostDir || '';
     this.slug = slug(this.name);
@@ -34,6 +45,14 @@ export default class Volume {
   static findById(id) {
     db.read();
     return db.get(TABLE).find({ id });
+  }
+
+  static getVolume(id) {
+    const volume = Volume.findById(id).value();
+    if (volume) {
+      return { volume, messages: [] };
+    }
+    return { volume: {}, messages: ['No such volume with this id'] };
   }
 
   static createVolume(args) {
@@ -89,18 +108,15 @@ export default class Volume {
     const volume = Volume.findById(id).value();
     if (!volume) {
       messages.push('No such volume with this id');
+      return { success: false, messages };
     }
     if (volume.type === Types.VOLUME) {
       try {
         const dockerVolume = await docker.getVolume(volume.name);
         await dockerVolume.remove();
-
-        return {
-          success: db.get(TABLE).remove({ id }).write().length === 1,
-          messages,
-        };
       } catch (e) {
-        return { success: false, messages: ['Can\'t remove volume', e.message] };
+        messages.push('Can\'t remove volume from host');
+        messages.push(e.message);
       }
     }
     return {
@@ -109,8 +125,12 @@ export default class Volume {
     };
   }
 
-  static async refreshVolumes() {
-    const { messages } = await Volume.createVolumesFromHost();
+  static async refreshVolumes(creatVolumes = true) {
+    let messages = [];
+    if (creatVolumes) {
+      const result = await Volume.createVolumesFromHost();
+      messages = result.messages;
+    }
 
     const usedVolumes = [];
     const volumes = Volume.getVolumes();
@@ -119,26 +139,33 @@ export default class Volume {
     for (const volume of volumes) {
       let usedVolume = false;
       if (volume.type === Types.VOLUME) {
-        for (const dockerVolume of dockerVolumes) {
-          if (volume.name === dockerVolume.Name) {
-            usedVolume = true;
-            break;
+        if (dockerVolumes !== null) {
+          for (const dockerVolume of dockerVolumes) {
+            if (volume.name === dockerVolume.Name) {
+              usedVolume = true;
+              break;
+            }
           }
         }
+      } else {
+        usedVolume = true;
       }
       if (usedVolume) {
         usedVolumes.push(volume);
       }
+      db.set(TABLE, usedVolumes).write();
     }
-    db.set(TABLE, usedVolumes).write();
-
     return { volumes: usedVolumes, messages };
   }
 
   static async pruneVolumes() {
-    const result = await docker.pruneVolumes();
-    await Volume.refreshVolumes();
-    return { cleaned: result.VolumesDeleted };
+    try {
+      await docker.pruneVolumes();
+    } catch (e) {
+      return { volumes: [], messages: [e.toString()] };
+    }
+    const result = await Volume.refreshVolumes(false);
+    return { volumes: result.volumes, messages: result.messages };
   }
 
   static async createVolumesFromHost() {
@@ -146,18 +173,20 @@ export default class Volume {
     const messages = [];
     let dockerVolumes = await docker.listVolumes();
     dockerVolumes = dockerVolumes.Volumes;
-    for (const dockerVolume of dockerVolumes) {
-      const volume = db.get(TABLE).find({ name: dockerVolume.Name }).value();
-      if (!volume) {
-        const args = {
-          name: dockerVolume.Name,
-          type: Types.VOLUME,
-        };
-        const result = Volume.createVolume(args);
-        if (result.messages.length === 0) {
-          messages.concat(result.messages);
-        } else {
-          volumes.push(result.volume);
+    if (dockerVolumes) {
+      for (const dockerVolume of dockerVolumes) {
+        const volume = db.get(TABLE).find({ name: dockerVolume.Name }).value();
+        if (!volume) {
+          const args = {
+            name: dockerVolume.Name,
+            type: Types.VOLUME,
+          };
+          const result = Volume.createVolume(args);
+          if (result.messages.length === 0) {
+            messages.concat(result.messages);
+          } else {
+            volumes.push(result.volume);
+          }
         }
       }
     }

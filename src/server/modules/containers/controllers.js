@@ -9,6 +9,14 @@ export const all = (req, res) => {
   }
 };
 
+export const one = (req, res) => {
+  try {
+    res.status(200).json(Container.getContainer(req.params.id));
+  } catch (e) {
+    res.status(400).json(e.toString());
+  }
+};
+
 export const create = async (req, res) => {
   try {
     if (!User.userCanChange(req.user)) {

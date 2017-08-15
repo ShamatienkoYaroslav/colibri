@@ -2,7 +2,6 @@ const devConfig = {
   DATA_FILE: './data/db-dev.json',
   USER_NAME: 'dev',
   USER_PASSWORD: 'dev',
-  JWT_SECRET: 'spacesheep',
 };
 
 const testConfig = {
@@ -22,6 +21,7 @@ const defaultConfig = {
   CRYPTO_ALGORITM: 'aes-256-ctr',
   CRYPTO_PASSWORD: 'wildwolf',
   DOCKER_SOCKET: '/var/run/docker.sock',
+  JWT_SECRET: 'spacesheep',
 };
 
 function envConfig(env) {

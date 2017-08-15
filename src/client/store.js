@@ -6,10 +6,10 @@ import thunk from 'redux-thunk';
 
 import rootReducer from './reducers';
 
-const middlewares = [
-  createLogger(),
-  thunk,
-];
+const middlewares = [thunk];
+if (process.env.NODE_ENV === 'development') {
+  middlewares.push(createLogger());
+}
 
 export default createStore(
   rootReducer,

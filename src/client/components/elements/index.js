@@ -1,5 +1,5 @@
 import PageTitle from './PageTitle';
-import ContentTable from './ContentTable';
-import ContentForm from './ContentForm';
+import ModalSelect from './ModalSelect';
+import Icon from './Icon';
 
-export { PageTitle, ContentTable, ContentForm };
+export { PageTitle, ModalSelect, Icon };

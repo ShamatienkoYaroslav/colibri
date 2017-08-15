@@ -71,14 +71,13 @@ export default (state = initialState, action) => {
         ...state,
         isFetched: true,
         e: action.e,
-        data: state.data.filter(element => element.id !== action.data.template.id),
       };
     case CREATE_TEMPLATE_SUCCESS:
       return {
         ...state,
         data: [
           ...state.data,
-          action.data.image,
+          action.data.template,
         ],
       };
 

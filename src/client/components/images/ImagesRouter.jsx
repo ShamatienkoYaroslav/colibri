@@ -1,7 +1,8 @@
 import React from 'react';
 import { Switch, Route } from 'react-router-dom';
 
-import { Image, Images } from '.';
+import Image from './Image';
+import Images from './Images';
 
 const ImagesRouter = () => (
   <Switch>

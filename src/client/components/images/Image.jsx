@@ -2,7 +2,6 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import uuid from 'uuid';
-import swal from 'sweetalert2';
 import {
   Grid,
   Col,
@@ -20,9 +19,15 @@ import {
 } from 'react-bootstrap';
 
 import { fetchImage, createImage, changeImage, deleteImage } from '../../actions/images';
-import { ImagesApi, format } from '../../utils';
+import { fetchSources } from '../../actions/sources';
+import { ImagesApi, format, dialog, tables } from '../../utils';
 
-import { PageTitle } from '../elements';
+import {
+  deleteImage as deleteImageDialog,
+  pullImage as pullImageDialog,
+} from './methods';
+
+import { PageTitle, ModalSelect, Icon } from '../elements';
 
 class Image extends Component {
   constructor(props) {
@@ -31,11 +36,12 @@ class Image extends Component {
     this.mainUrl = '/images';
     this.id = this.props.match.params.id;
     this.info = null;
+    this.read = false;
 
     this.state = {
       new: !this.id,
-      read: false,
       modified: false,
+      showSelect: false,
       data: {
         name: '',
         tag: '',
@@ -51,11 +57,12 @@ class Image extends Component {
     this.handleClose = this.handleClose.bind(this);
     this.handleSave = this.handleSave.bind(this);
     this.handleDelete = this.handleDelete.bind(this);
-    this.handlePull = this.handlePull.bind(this);
-    this.pullImage = this.pullImage.bind(this);
+    this.handleSelectSource = this.handleSelectSource.bind(this);
+    this.generateModalSelect = this.generateModalSelect.bind(this);
   }
 
   async componentDidMount() {
+    this.props.fetchSources();
     if (!this.state.new) {
       await this.readImage();
     }
@@ -69,6 +76,9 @@ class Image extends Component {
   getData() {
     const data = this.getDataById();
     const stateData = this.state.data;
+    if (!data) {
+      return stateData;
+    }
     const keys = Object.keys(stateData);
     for (let i = 0; i < keys.length; i += 1) {
       const key = keys[i];
@@ -97,22 +107,24 @@ class Image extends Component {
 
   handleChange(e) {
     if (typeof e === 'string') {
-      console.log(e);
-      // TODO: open modal here
+      this.setState({ showSelect: true });
     } else {
       this.setState({
+        modified: true,
         data: {
           ...this.state.data,
           [e.target.name]: e.target.value,
         },
       });
     }
-
-    this.setState({ modified: true });
   }
 
   handleClose() {
-    this.goBack();
+    if (this.state.modified) {
+      dialog.showOnCloseDialog(this.goBack);
+    } else {
+      this.goBack();
+    }
   }
 
   async handleSave() {
@@ -123,45 +135,24 @@ class Image extends Component {
       this.props.changeImage(this.id, this.getData());
     }
 
+    this.props.fetchSources();
+    this.readImage();
+
     this.props.history.push(`${this.mainUrl}/${this.id}`);
 
-    this.setState({ modified: false, new: false, read: true });
+    this.read = true;
+    this.setState({ modified: false, new: false });
   }
 
   handleDelete() {
-    this.props.deleteImage(this.id);
-    this.goBack();
-  }
-
-  handlePull() {
-    let pulled = false;
     const data = this.getData();
-    swal({
-      html: `Do you want to pull the image <strong>${data.name}:${data.tag}</strong>?`,
-      type: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Yes',
-      cancelButtonText: 'No',
-      confirmButtonColor: '#EA5455',
-      showLoaderOnConfirm: true,
-      useRejections: false,
-      preConfirm: () => (
-        new Promise(async (resolve) => {
-          await this.pullImage();
-          pulled = true;
-          resolve();
-        })
-      ),
-    })
-    .then(() => {
-      if (pulled) {
-        swal({
-          html: `The image <strong>${data.name}:${data.tag}</strong> was pulled.`,
-          type: 'success',
-          confirmButtonColor: '#EA5455',
-        });
-      }
-    });
+    dialog.showQuestionDialog(
+      `Do you want to delete the image <strong>${data.name}:${data.tag}</strong>?`,
+      () => {
+        this.props.deleteImage(this.id);
+        this.goBack();
+      },
+    );
   }
 
   async readImage() {
@@ -171,35 +162,33 @@ class Image extends Component {
       this.info = resp.info;
     }
     this.props.fetchImage(this.id);
-    this.setState({ read: false });
+    this.read = false;
   }
 
-  async pullImage() {
-    try {
-      const pullResp = await ImagesApi.pullImage(this.id);
-      if (pullResp.success) {
-        const infoResp = await ImagesApi.getInfo(this.id);
-        if (infoResp.messages.length !== 0) {
-          console.log('ERROR_PULL_IMAGE_GET_INFO', infoResp.messages);
-        } else {
-          this.info = infoResp.info;
-          this.forceUpdate();
-        }
-      }
-    } catch (e) {
-      console.log('ERROR_PULL_IMAGE', e); 
-    }
-  }
-
-  pullImageConfirm() {
-    return new Promise(async (resolve) => {
-      await this.pullImage();
-      resolve();
+  handleSelectSource(source) {
+    this.setState({
+      modified: true,
+      showSelect: false,
+      data: {
+        ...this.state.data,
+        source,
+      },
     });
   }
 
+  generateModalSelect() {
+    return (
+      <ModalSelect
+        table="sources"
+        show={this.state.showSelect}
+        onHide={() => this.setState({ showSelect: false })}
+        onSelect={value => this.handleSelectSource(value)}
+      />
+    );
+  }
+
   render() {
-    if (this.state.read) {
+    if (this.read) {
       this.readImage();
     }
 
@@ -207,11 +196,17 @@ class Image extends Component {
 
     const title = `${data.name} ${this.state.modified || this.state.new ? '*' : ''}`;
 
+    const sourceData = tables.getTableElementById(this.props.sources.data, data.source);
+    let sourceName = '';
+    if (sourceData) {
+      sourceName = sourceData.name;
+    }
+
     let info = null;
     if (!this.state.new) {
       info = (
         <div>
-          <p>Now you can <a role="button" onClick={this.handlePull}>pull</a> the image.</p>
+          <p>Now you can <a role="button" onClick={() => pullImageDialog(this, this.id, data.name, data.tag, false)}>pull</a> the image.</p>
         </div>
       );
     }
@@ -276,10 +271,10 @@ class Image extends Component {
         if (env) {
           envVars = (
             <Tab eventKey={1} title="Env Vars">
-              <div className="tab-content">
+              <div className="tab-elements">
                 <Row>
                   <Col sm={12}>
-                    <Table condensed bordered responsive readOnly>
+                    <Table condensed responsive readOnly>
                       <thead>
                         <tr>
                           <th>Variable</th>
@@ -412,13 +407,25 @@ class Image extends Component {
         <Grid>
           <ButtonToolbar>
             <ButtonGroup>
-              <Button bsStyle="primary" onClick={this.handleClose}>Close</Button>
-              <Button onClick={this.handleSave}>Save</Button>
-              <Button onClick={this.handleDelete}>Delete</Button>
+              <Button bsStyle="primary" onClick={this.handleClose}>
+                <Icon.Close />
+                Close
+              </Button>
+              <Button onClick={this.handleSave}>
+                <Icon.Save />
+                Save
+              </Button>
+              <Button onClick={() => deleteImageDialog(this, this.id, data.name, data.tag, false)}>
+                <Icon.Delete />
+                Delete
+              </Button>
             </ButtonGroup>
 
             <ButtonGroup>
-              <Button onClick={this.handlePull}>Pull</Button>
+              <Button onClick={() => pullImageDialog(this, this.id, data.name, data.tag, false)}>
+                <Icon.Pull />
+                Pull
+              </Button>
             </ButtonGroup>
           </ButtonToolbar>
         </Grid>
@@ -459,10 +466,10 @@ class Image extends Component {
                   <InputGroup>
                     <FormControl
                       type="text"
-                      value={data.source}
+                      value={sourceName}
                       placeholder="Enter source"
                     />
-                    <InputGroup.Addon onClick={() => this.handleChange('source')}>...</InputGroup.Addon>
+                    <InputGroup.Addon onClick={() => this.handleChange('')}>...</InputGroup.Addon>
                   </InputGroup>
                 </FormGroup>
               </Col>
@@ -471,6 +478,8 @@ class Image extends Component {
 
           {info}
         </Grid>
+
+        {this.generateModalSelect()}
       </div>
     );
   }
@@ -487,13 +496,16 @@ Image.propTypes = {
   createImage: PropTypes.func.isRequired,
   changeImage: PropTypes.func.isRequired,
   deleteImage: PropTypes.func.isRequired,
+  fetchSources: PropTypes.func.isRequired,
 };
 
 export default connect(state => ({
   images: state.images,
+  sources: state.sources,
 }), {
   fetchImage,
   createImage,
   changeImage,
   deleteImage,
+  fetchSources,
 })(Image);

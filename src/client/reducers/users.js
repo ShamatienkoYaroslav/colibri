@@ -10,7 +10,21 @@ import {
   FETCH_USERS,
   FETCH_USERS_ERROR,
   FETCH_USERS_SUCCESS,
+  FETCH_USER,
+  FETCH_USER_ERROR,
+  FETCH_USER_SUCCESS,
+  CREATE_USER,
+  CREATE_USER_ERROR,
+  CREATE_USER_SUCCESS,
+  CHANGE_USER,
+  CHANGE_USER_ERROR,
+  CHANGE_USER_SUCCESS,
+  DELETE_USER,
+  DELETE_USER_ERROR,
+  DELETE_USER_SUCCESS,
 } from '../actions/users';
+
+import { updateData } from '.';
 
 const initialState = {
   user: Auth.getUser(),
@@ -71,6 +85,76 @@ export default (state = initialState, action) => {
         ...state,
         data: action.data,
         isFetched: true,
+      };
+
+    // ONE
+    case FETCH_USER:
+      return {
+        ...state,
+      };
+    case FETCH_USER_ERROR:
+      return {
+        ...state,
+        e: action.e,
+        isFetched: true,
+      };
+    case FETCH_USER_SUCCESS:
+      return {
+        ...state,
+        data: updateData(state.data, action.data.user),
+        isFetched: true,
+      };
+
+    // CREATE
+    case CREATE_USER:
+      return state;
+    case CREATE_USER_ERROR:
+      return {
+        ...state,
+        isFetched: true,
+        e: action.e,
+      };
+    case CREATE_USER_SUCCESS:
+      return {
+        ...state,
+        data: [
+          ...state.data,
+          action.data.user,
+        ],
+      };
+
+    // CHANGE
+    case CHANGE_USER:
+      return {
+        ...state,
+      };
+    case CHANGE_USER_ERROR:
+      return {
+        ...state,
+        e: action.e,
+        isFetched: true,
+      };
+    case CHANGE_USER_SUCCESS:
+      return {
+        ...state,
+        data: updateData(state.data, action.data.user),
+        isFetched: true,
+      };
+
+    // DELETE
+    case DELETE_USER:
+      return {
+        ...state,
+      };
+    case DELETE_USER_ERROR:
+      return {
+        ...state,
+        e: action.e,
+      };
+    case DELETE_USER_SUCCESS:
+      return {
+        ...state,
+        data: state.data.filter(element => element.id !== action.id),
       };
 
     default:

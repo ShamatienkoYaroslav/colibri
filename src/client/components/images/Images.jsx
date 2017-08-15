@@ -4,8 +4,14 @@ import { connect } from 'react-redux';
 import { Grid, Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
 
 import { fetchImages, deleteImage, pruneImages, clarifyImages } from '../../actions/images';
+import { fetchSources } from '../../actions/sources';
+import { dialog, tables } from '../../utils';
+import {
+  deleteImage as deleteImageDialog,
+  pullImage as pullImageDialog,
+} from './methods';
 
-import { PageTitle, ContentTable } from '../elements';
+import { PageTitle, Icon } from '../elements';
 
 class Images extends Component {
   constructor(props) {
@@ -21,10 +27,12 @@ class Images extends Component {
     this.handleCreate = this.handleCreate.bind(this);
     this.handleReload = this.handleReload.bind(this);
     this.handlePrune = this.handlePrune.bind(this);
-    this.handleClarify = this.handleClarify.bind(this);
+    this.handleSynchronize = this.handleSynchronize.bind(this);
+    this.handlePull = this.handlePull.bind(this);
   }
 
   componentDidMount() {
+    this.props.fetchSources();
     this.props.fetchImages();
   }
 
@@ -37,8 +45,11 @@ class Images extends Component {
   }
 
   handleDelete() {
-    this.props.deleteImage(this.state.activeRow);
-    this.setState({ activeRow: null });
+    const activeRow = this.state.activeRow;
+    const data = tables.getTableElementById(this.props.images.data, activeRow);
+    if (data) {
+      deleteImageDialog(this, activeRow, data.name, data.tag);
+    }
   }
 
   handleCreate() {
@@ -46,18 +57,37 @@ class Images extends Component {
   }
 
   handleReload() {
+    this.props.fetchSources();
     this.props.fetchImages();
     this.setState({ activeRow: null });
   }
 
   handlePrune() {
-    this.props.pruneImages();
-    this.setState({ activeRow: null });
+    dialog.showQuestionDialog(
+      'Do you want to prune images?',
+      () => {
+        this.props.pruneImages();
+        this.setState({ activeRow: null });
+      },
+    );
   }
 
-  handleClarify() {
-    this.props.clarifyImages();
-    this.setState({ activeRow: null });
+  handleSynchronize() {
+    dialog.showQuestionDialog(
+      'Do you want to synchronize images?',
+      () => {
+        this.props.clarifyImages();
+        this.setState({ activeRow: null });
+      },
+    );
+  }
+
+  handlePull() {
+    const activeRow = this.state.activeRow;
+    const data = tables.getTableElementById(this.props.images.data, activeRow);
+    if (data) {
+      pullImageDialog(this, activeRow, data.name, data.tag);
+    }
   }
 
   render() {
@@ -68,7 +98,12 @@ class Images extends Component {
 
     if (isFetched) {
       const rows = data.map((element) => {
-        const { id, name, tag } = element;
+        const { id, name, tag, source } = element;
+        const sourceData = tables.getTableElementById(this.props.sources.data, source);
+        let sourceName = '';
+        if (sourceData) {
+          sourceName = sourceData.name;
+        }
         return (
           <tr
             key={data.indexOf(element)}
@@ -77,6 +112,7 @@ class Images extends Component {
             onDoubleClick={this.handleDoubleClick}
           >
             <td>{`${name}:${tag}`}</td>
+            <td>{`${sourceName}`}</td>
           </tr>
         );
       });
@@ -85,23 +121,44 @@ class Images extends Component {
         <div>
           <ButtonToolbar>
             <ButtonGroup>
-              <Button bsStyle="primary" onClick={this.handleCreate}>Create</Button>
-              <Button onClick={this.handleReload}>Reload</Button>
-              <Button disabled={activeRow === null} onClick={this.handleDelete}>Delete</Button>
+              <Button bsStyle="primary" onClick={this.handleCreate}>
+                <Icon.Create />
+                Create
+              </Button>
+              <Button onClick={this.handleReload}>
+                <Icon.Refresh />
+                Reload
+                </Button>
+              <Button disabled={activeRow === null} onClick={this.handleDelete}>
+                <Icon.Delete />
+                Delete
+              </Button>
             </ButtonGroup>
 
             <ButtonGroup>
-              <Button onClick={this.handlePrune}>Prune</Button>
-              <Button onClick={this.handleClarify}>Clarify</Button>
+              <Button onClick={this.handleSynchronize}>
+                <Icon.Sync />
+                Synchronize
+              </Button>
+              <Button onClick={this.handlePrune}>
+                <Icon.Prune />
+                Prune
+              </Button>
+            </ButtonGroup>
+
+            <ButtonGroup>
+              <Button disabled={activeRow === null} onClick={this.handlePull}>
+                <Icon.Pull />
+                Pull
+              </Button>
             </ButtonGroup>
           </ButtonToolbar>
 
           <Table responsive hover>
             <thead>
               <tr>
-                <th>
-                  Name
-                </th>
+                <th>Name</th>
+                <th>Source</th>
               </tr>
             </thead>
             <tbody>
@@ -134,13 +191,16 @@ Images.propTypes = {
   deleteImage: PropTypes.func.isRequired,
   pruneImages: PropTypes.func.isRequired,
   clarifyImages: PropTypes.func.isRequired,
+  fetchSources: PropTypes.func.isRequired,
 };
 
 export default connect(state => ({
   images: state.images,
+  sources: state.sources,
 }), {
   fetchImages,
   deleteImage,
   pruneImages,
   clarifyImages,
+  fetchSources,
 })(Images);

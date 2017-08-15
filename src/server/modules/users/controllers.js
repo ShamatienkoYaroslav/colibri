@@ -8,6 +8,14 @@ export const all = (req, res) => {
   }
 };
 
+export const one = (req, res) => {
+  try {
+    res.status(200).json(User.getUser(req.params.id));
+  } catch (e) {
+    res.status(400).json(e.toString());
+  }
+};
+
 export const login = (req, res) => {
   try {
     res.status(200).json(User.loginUser(req.user));

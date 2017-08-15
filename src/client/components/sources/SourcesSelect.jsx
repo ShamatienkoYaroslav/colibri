@@ -1,8 +1,11 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Grid, Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
+import { connect } from 'react-redux';
+import { Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
 
-class ContentTable extends Component {
+import { fetchSources } from '../../actions/sources';
+
+class SourcesSelect extends Component {
   constructor(props) {
     super(props);
 
@@ -10,36 +13,34 @@ class ContentTable extends Component {
 
     this.handleOnClick = this.handleOnClick.bind(this);
     this.handleDoubleClick = this.handleDoubleClick.bind(this);
-    this.deleteSelected = this.deleteSelected.bind(this);
-    this.reload = this.reload.bind(this);
+    this.handleReload = this.handleReload.bind(this);
+    this.onSelect = this.onSelect.bind(this);
   }
 
   componentDidMount() {
-    this.props.fetch();
+    this.props.fetchSources();
+  }
+
+  onSelect() {
+    this.props.onSelect(this.state.activeRow);
   }
 
   handleOnClick(activeRow) {
     this.setState({ activeRow });
   }
 
-  handleDoubleClick(e) {
-    e.preventDefault();
-    this.props.history.push(`${this.props.url}/${this.state.activeRow}`);
+  handleDoubleClick() {
+    this.onSelect();
   }
 
-  deleteSelected() {
-    this.props.deleteSelected(this.state.activeRow);
-    this.setState({ activeRow: null });
-  }
-
-  reload() {
-    this.props.fetch();
+  handleReload() {
+    this.props.fetchSources();
     this.setState({ activeRow: null });
   }
 
   render() {
     const activeRow = this.state.activeRow;
-    const { data, isFetched } = this.props;
+    const { data, isFetched } = this.props.sources;
 
     let elementToRender = 'Loading...';
 
@@ -53,7 +54,7 @@ class ContentTable extends Component {
             onClick={() => this.handleOnClick(id)}
             onDoubleClick={this.handleDoubleClick}
           >
-            <td>{name}</td>
+            <td>{`${name}`}</td>
           </tr>
         );
       });
@@ -62,12 +63,9 @@ class ContentTable extends Component {
         <div>
           <ButtonToolbar>
             <ButtonGroup>
-              <Button bsStyle="primary">Create</Button>
-              <Button onClick={this.reload}>Reload</Button>
-              <Button disabled={activeRow === null} onClick={this.deleteSelected}>Delete</Button>
+              <Button bsStyle="primary" onClick={this.onSelect}>Select</Button>
+              <Button onClick={this.handleReload}>Reload</Button>
             </ButtonGroup>
-
-            {this.props.toolbarAddon}
           </ButtonToolbar>
 
           <Table responsive hover>
@@ -87,25 +85,25 @@ class ContentTable extends Component {
     }
 
     return (
-      <Grid>
+      <div>
         {elementToRender}
-      </Grid>
+      </div>
     );
   }
 }
 
-ContentTable.defaultProps = {
-  toolbarAddon: '',
+SourcesSelect.propTypes = {
+  sources: PropTypes.shape({
+    data: PropTypes.array.isRequired,
+    isFetched: PropTypes.bool.isRequired,
+  }).isRequired,
+
+  fetchSources: PropTypes.func.isRequired,
+  onSelect: PropTypes.func.isRequired,
 };
 
-ContentTable.propTypes = {
-  url: PropTypes.string.isRequired,
-  history: PropTypes.shape().isRequired,
-  data: PropTypes.arrayOf(PropTypes.object).isRequired,
-  isFetched: PropTypes.bool.isRequired,
-  toolbarAddon: PropTypes.node.isRequired,
-  fetch: PropTypes.func.isRequired,
-  deleteSelected: PropTypes.func.isRequired,
-};
-
-export default ContentTable;
+export default connect(state => ({
+  sources: state.sources,
+}), {
+  fetchSources,
+})(SourcesSelect);

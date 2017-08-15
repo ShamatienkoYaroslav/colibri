@@ -8,15 +8,21 @@ body {
 }
 
 .login-page {
-  margin-left: 40%;
-  margin-right: 40%;
+  img {
+    height: 180px;
+    display: block;
+    margin: auto;
+  }
 
   h2 {
     text-align: center;
+    color: $brand-primary;
   }
 
   form {
-    margin-top: 20%;
+    margin-top: 10%;
+    margin-right: 10%;
+    margin-left: 10%;
 
     .btn {
       width: 100%;
@@ -28,7 +34,12 @@ body {
   color: $brand-primary;
 }
 
-.tab-content {
+.tab-elements {
+  border-style: solid;
+  border-width: 1px;
+  border-top-width: 0;
+  border-color: $nav-tabs-border-color;
+
   .table-responsive {
     border-top-width: 0;
   }
@@ -36,8 +47,28 @@ body {
   table {
     border-top-width: 0;
   }
+
+  .btn-toolbar {
+    padding-top: 10px;
+    padding-left: 5px;
+    padding-bottom: 10px;
+  }
 }
 
 .blank-place {
   padding-bottom: 20px;
+}
+
+.not-found {
+  text-align: center;
+  margin-top: 20%;
+  font-weight: bold;
+
+  h1 {
+    color: $brand-primary;
+  }
+}
+
+.icon {
+  padding-right: 5px;
 }

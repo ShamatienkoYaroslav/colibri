@@ -67,7 +67,6 @@ export default (state = initialState, action) => {
         ...state,
         data: updateData(state.data, action.data.image),
         isFetched: true,
-        currentImage: action.data.image,
       };
 
     // CREATE

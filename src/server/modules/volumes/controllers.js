@@ -9,6 +9,14 @@ export const all = (req, res) => {
   }
 };
 
+export const one = (req, res) => {
+  try {
+    res.status(200).json(Volume.getVolume(req.params.id));
+  } catch (e) {
+    res.status(400).json(e.toString());
+  }
+};
+
 export const create = (req, res) => {
   try {
     if (!User.userCanChange(req.user)) {

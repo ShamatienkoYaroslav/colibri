@@ -1,0 +1,25 @@
+FROM ioft/armhf-ubuntu:16.04
+
+MAINTAINER Princip <principle.main@gmail.com>
+
+ENV WORKING_DIR /
+ENV NODE_ENV 'production'
+
+WORKDIR $WORKING_DIR
+
+ADD ./dist $WORKING_DIR
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+RUN chmod 755 $WORKING_DIR
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install curl -y
+RUN curl -sL https://deb.nodesource.com/setup_6.x | bash -
+RUN apt-get install -y nodejs
+RUN npm i --production --unsafe-perm --build-from-source
+
+# Windows add specific CR LF to the end of line
+RUN sed -i -e 's/\r$//' run.sh
+
+EXPOSE 5000
+
+CMD npm run prod

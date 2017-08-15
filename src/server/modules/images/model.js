@@ -83,6 +83,7 @@ export default class Image {
     const image = Image.findById(id).value();
     if (!image) {
       messages.push('No such image with this id');
+      return { success: false, messages };
     }
 
     try {
@@ -167,8 +168,12 @@ export default class Image {
     });
   }
 
-  static async refreshImages() {
-    const { messages } = await Image.createImagesFromHost();
+  static async refreshImages(createImages = true) {
+    let messages = [];
+    if (createImages) {
+      const result = await Image.createImagesFromHost();
+      messages = result.messages;
+    }
 
     const usedImages = [];
     const images = Image.getImages();
@@ -176,9 +181,11 @@ export default class Image {
     for (const image of images) {
       let usedImage = false;
       for (const dockerImage of dockerImages) {
-        if (`${image.name}:${image.tag}` === dockerImage.RepoTags[0]) {
-          usedImage = true;
-          break;
+        for (const imageRT of dockerImage.RepoTags) {
+          if (`${image.name}:${image.tag}` === imageRT) {
+            usedImage = true;
+            break;
+          }
         }
       }
       if (usedImage) {
@@ -186,13 +193,12 @@ export default class Image {
       }
     }
     db.set(TABLE, usedImages).write();
-
     return { images: usedImages, messages };
   }
 
   static async pruneImages() {
     await docker.pruneImages();
-    const result = await Image.refreshImages();
+    const result = await Image.refreshImages(false);
     return { images: result.images, messages: result.messages };
   }
 
@@ -201,16 +207,18 @@ export default class Image {
     const messages = [];
     const dockerImages = await docker.listImages();
     for (const dockerImage of dockerImages) {
-      const repoTags = dockerImage.RepoTags[0].split(':');
-      const name = repoTags[0];
-      const tag = repoTags[1];
-      const image = db.get(TABLE).find({ slug: slug(`${name} ${tag}`) }).value();
-      if (!image) {
-        const result = Image.createImage({ id: dockerImage.RepoTags[0], name, tag });
-        if (result.messages.length === 0) {
-          messages.concat(result.messages);
-        } else {
-          images.push(result.image);
+      for (const imageRT of dockerImage.RepoTags) {
+        const repoTags = imageRT.split(':');
+        const name = repoTags[0];
+        const tag = repoTags[1];
+        const image = db.get(TABLE).find({ slug: slug(`${name}:${tag}`) }).value();
+        if (!image) {
+          const result = Image.createImage({ id: dockerImage.RepoTags[0], name, tag });
+          if (result.messages.length === 0) {
+            messages.concat(result.messages);
+          } else {
+            images.push(result.image);
+          }
         }
       }
     }

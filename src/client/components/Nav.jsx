@@ -1,32 +1,64 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { Nav, NavItem, Navbar, NavDropdown, MenuItem } from 'react-bootstrap';
+import { NavLink } from 'react-router-dom';
+import { Nav, Navbar, NavDropdown, MenuItem } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 
 import { logout } from '../actions/users';
+import { Auth } from '../utils';
+import { Icon } from './elements';
 
 const handleLogout = (e, logoutFunc) => {
   e.preventDefault();
   logoutFunc();
 };
 
+const NavigationLink = ({ to, active, title, onClick }) => (
+  <li className={active ? 'active' : ''} onClick={onClick}>
+    <NavLink to={to}>{title}</NavLink>
+  </li>
+)
+
+NavigationLink.propTypes = {
+  to: PropTypes.string.isRequired,
+  active: PropTypes.bool.isRequired,
+  title: PropTypes.string.isRequired,
+  onClick: PropTypes.func.isRequired,
+};
+
 class NavBar extends Component {
   constructor(props) {
     super(props);
 
-    this.state = { activeKey: 1 };
+    this.state = { pathname: document.location.pathname };
 
     this.handleSelect = this.handleSelect.bind(this);
   }
 
-  handleSelect(activeKey) {
-    this.setState({ activeKey });
+  handleSelect() {
+    this.setState({ pathname: document.location.pathname });
   }
 
   render() {
-    const activeKey = this.state.activeKey;
     const { user, logout: logoutFunc } = this.props;
+    const userIsAdmin = Auth.userIsAdmin();
+
+    let divider = null;
+    let settings = null;
+    if (userIsAdmin) {
+      settings = (
+        <LinkContainer to="/settings">
+          <MenuItem>
+            <Icon glyph="cog" />
+            Settings
+          </MenuItem>
+        </LinkContainer>
+      );
+
+      divider = (<MenuItem divider />);
+    }
+
     return (
       <Navbar fixedTop>
         <Navbar.Header>
@@ -36,31 +68,47 @@ class NavBar extends Component {
           <Navbar.Toggle />
         </Navbar.Header>
         <Navbar.Collapse>
-          <Nav activeKey={activeKey} onSelect={this.handleSelect}>
-            <LinkContainer to="/containers">
-              <NavItem eventKey={1} >Containers</NavItem>
-            </LinkContainer>
-            <LinkContainer to="/images">
-              <NavItem eventKey={2}>Images</NavItem>
-            </LinkContainer>
-            <LinkContainer to="/imagesources">
-              <NavItem eventKey={3}>Image Sources</NavItem>
-            </LinkContainer>
-            <LinkContainer to="/templates">
-              <NavItem eventKey={4}>Templates</NavItem>
-            </LinkContainer>
-            <LinkContainer to="/volumes">
-              <NavItem eventKey={5}>Volumes</NavItem>
-            </LinkContainer>
+          <Nav>
+            <NavigationLink
+              to="/containers"
+              title="Containers"
+              active={this.state.pathname === "/containers"}
+              onClick={this.handleSelect}
+            />
+            <NavigationLink
+              to="/images"
+              title="Images"
+              active={this.state.pathname === "/images"}
+              onClick={this.handleSelect}
+            />
+            <NavigationLink
+              to="/sources"
+              title="Sources"
+              active={this.state.pathname === "/sources"}
+              onClick={this.handleSelect}
+            />
+            <NavigationLink
+              to="/templates"
+              title="Templates"
+              active={this.state.pathname === "/templates"}
+              onClick={this.handleSelect}
+            />
+            <NavigationLink
+              to="/volumes"
+              title="Volumes"
+              active={this.state.pathname === "/volumes"}
+              onClick={this.handleSelect}
+            />
           </Nav>
-          <Nav activeKey={activeKey} pullRight onSelect={this.handleSelect}>
-            <NavDropdown eventKey={6} title={user.name} id="basic-nav-dropdown">
-              <MenuItem eventKey={6.1} >Settings</MenuItem>
+          <Nav pullRight>
+            <NavDropdown title={user.name} id="basic-nav-dropdown">
+              {settings}
+              {divider}
               <LinkContainer to="/login">
                 <MenuItem
-                  eventKey={6.2}
                   onClick={e => handleLogout(e, logoutFunc)}
                 >
+                  <Icon glyph="log-out" />
                   Logout
                 </MenuItem>
               </LinkContainer>

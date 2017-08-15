@@ -19,11 +19,11 @@ class ImageSource {
     this.name = args.name;
     this.slug = slug(args.name);
     this.resource = args.resource || resources.DOCKER_HUB;
-    this.host = args.host;
-    this.port = args.port;
-    this.user = args.user;
-    this.password = crypt.encrypt(args.password);
-    this.filename = args.filename;
+    this.host = args.host || '';
+    this.port = args.port || '';
+    this.user = args.user || '';
+    this.password = crypt.encrypt(args.password || '');
+    this.filename = args.filename || '';
     this.hide = args.hide || false;
   }
 
@@ -40,12 +40,20 @@ class ImageSource {
     return db.get(TABLE).find({ id });
   }
 
+  static getImageSource(id) {
+    const imageSource = ImageSource.findById(id).value();
+    if (imageSource) {
+      return { source: imageSource, messages: [] };
+    }
+    return { source: {}, messages: ['No such source with this id'] };
+  }
+
   static createImageSource(args) {
     db.read();
 
     const imageSourcesDb = db.get(TABLE).find({ name: args.name }).value();
     if (imageSourcesDb) {
-      return { user: {}, messages: ['User with this name exists'] };
+      return { user: {}, messages: ['Source with this name exists'] };
     }
 
     let imageSource = new ImageSource({ ...args });
@@ -53,9 +61,9 @@ class ImageSource {
     if (messages.length === 0) {
       imageSource = imageSource.toJSON();
       db.get(TABLE).push(imageSource).write();
-      return { imageSource, messages };
+      return { source: imageSource, messages };
     }
-    return { imageSource: {}, messages };
+    return { source: {}, messages };
   }
 
   static changeImageSource(id, args) {
@@ -65,13 +73,13 @@ class ImageSource {
       const messages = imageSource.validate();
       if (messages.length === 0) {
         return {
-          imageSource: imageSourceDb.assign({ ...imageSource.toJSON() }).write(),
+          source: imageSourceDb.assign({ ...imageSource.toJSON() }).write(),
           messages,
         };
       }
-      return { imageSource: {}, messages };
+      return { source: {}, messages };
     }
-    return { imageSource: {}, messages: ['No such source with this id'] };
+    return { source: {}, messages: ['No such source with this id'] };
   }
 
   static removeImageSource(id) {
@@ -91,20 +99,22 @@ class ImageSource {
     if (!this.name) {
       messages.push('Name is required!');
     }
-    if (!this.host) {
-      messages.push('Host is required!');
-    }
-    if (!this.port) {
-      messages.push('Port is required!');
-    }
-    if (!this.user) {
-      messages.push('User is required!');
-    }
-    if (!this.password) {
-      messages.push('Password is required!');
-    }
-    if (!this.filename) {
-      messages.push('Filename is required!');
+    if (this.resource === resources.FTP) {
+      if (!this.host) {
+        messages.push('Host is required!');
+      }
+      if (!this.port) {
+        messages.push('Port is required!');
+      }
+      if (!this.user) {
+        messages.push('User is required!');
+      }
+      if (!this.password) {
+        messages.push('Password is required!');
+      }
+      if (!this.filename) {
+        messages.push('Filename is required!');
+      }
     }
     return messages;
   }
@@ -118,6 +128,7 @@ class ImageSource {
       host: this.host,
       port: this.port,
       user: this.user,
+      password: crypt.decrypt(this.password),
       filename: this.filename,
     };
   }
