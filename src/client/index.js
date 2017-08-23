@@ -12,6 +12,8 @@ import '../../node_modules/bootstrap-sass/assets/fonts/bootstrap/glyphicons-half
 import '../../node_modules/bootstrap-sass/assets/fonts/bootstrap/glyphicons-halflings-regular.eot';
 import '../../node_modules/bootstrap-sass/assets/fonts/bootstrap/glyphicons-halflings-regular.ttf';
 
+import './images/favicon.png';
+
 import store from './store';
 
 import Base from './components/Base';

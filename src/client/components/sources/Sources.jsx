@@ -6,7 +6,7 @@ import { Grid, Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap
 import { fetchSources, deleteSource } from '../../actions/sources';
 import { dialog } from '../../utils';
 
-import { PageTitle, Icon } from '../elements';
+import { PageTitle, Icon, Spinner } from '../elements';
 
 const Resources = {
   DOCKER_HUB: 'docker-hub',
@@ -69,12 +69,14 @@ class Sources extends Component {
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.sources);
+
     const activeRow = this.state.activeRow;
     const { data, isFetched } = this.props.sources;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (isFetched) {
+    if (isFetched && !haveErrors) {
       const rows = data.map((element) => {
         const { id, name, resource } = element;
         let resourceText = 'Docker Hub';

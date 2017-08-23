@@ -20,6 +20,9 @@ import {
   PRUNE_IMAGES,
   PRUNE_IMAGES_ERROR,
   PRUNE_IMAGES_SUCCESS,
+  UPLOAD_IMAGES,
+  UPLOAD_IMAGES_ERROR,
+  UPLOAD_IMAGES_SUCCESS,
 } from '../actions/images';
 
 import { updateData } from '.';
@@ -28,6 +31,8 @@ const initialState = {
   data: [],
   e: null,
   isFetched: false,
+  uploading: false,
+  propsReady: false,
 };
 
 export default (state = initialState, action) => {
@@ -37,6 +42,8 @@ export default (state = initialState, action) => {
     case FETCH_IMAGES:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case FETCH_IMAGES_ERROR:
       return {
@@ -49,29 +56,40 @@ export default (state = initialState, action) => {
         ...state,
         data: action.data,
         isFetched: true,
+        e: null,
       };
 
     // ONE
     case FETCH_IMAGE:
       return {
         ...state,
+        isFetched: false,
+        propsReady: false,
+        e: null,
       };
     case FETCH_IMAGE_ERROR:
       return {
         ...state,
         e: action.e,
         isFetched: true,
+        propsReady: true,
       };
     case FETCH_IMAGE_SUCCESS:
       return {
         ...state,
         data: updateData(state.data, action.data.image),
         isFetched: true,
+        propsReady: true,
+        e: null,
       };
 
     // CREATE
     case CREATE_IMAGE:
-      return state;
+      return {
+        ...state,
+        isFetched: false,
+        e: null,
+      };
     case CREATE_IMAGE_ERROR:
       return {
         ...state,
@@ -85,12 +103,16 @@ export default (state = initialState, action) => {
           ...state.data,
           action.data.image,
         ],
+        isFetched: true,
+        e: null,
       };
 
     // CHANGE
     case CHANGE_IMAGE:
       return {
         ...state,
+        isFetched: false,
+        e: null,
       };
     case CHANGE_IMAGE_ERROR:
       return {
@@ -103,54 +125,91 @@ export default (state = initialState, action) => {
         ...state,
         data: updateData(state.data, action.data.image),
         isFetched: true,
+        e: null,
       };
 
     // DELETE
     case DELETE_IMAGE:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case DELETE_IMAGE_ERROR:
       return {
         ...state,
         e: action.e,
+        isFetched: true,
       };
     case DELETE_IMAGE_SUCCESS:
       return {
         ...state,
         data: state.data.filter(element => element.id !== action.id),
+        isFetched: true,
+        e: null,
       };
 
     // PRUNE
     case PRUNE_IMAGES:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case PRUNE_IMAGES_ERROR:
       return {
         ...state,
         e: action.e,
+        isFetched: true,
       };
     case PRUNE_IMAGES_SUCCESS:
       return {
         ...state,
         data: action.data.images,
+        e: null,
+        isFetched: true,
       };
 
     // CLARIFY
     case CLARIFY_IMAGES:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case CLARIFY_IMAGES_ERROR:
       return {
         ...state,
         e: action.e,
+        isFetched: true,
       };
     case CLARIFY_IMAGES_SUCCESS:
       return {
         ...state,
         data: action.data.images,
+        isFetched: true,
+        e: null,
+      };
+
+    // UPLOAD
+    case UPLOAD_IMAGES:
+      return {
+        ...state,
+        uploading: true,
+        e: null,
+      };
+    case UPLOAD_IMAGES_ERROR:
+      return {
+        ...state,
+        e: action.e,
+        uploading: false,
+      };
+    case UPLOAD_IMAGES_SUCCESS:
+      return {
+        ...state,
+        data: action.data.images,
+        uploading: false,
+        e: null,
       };
 
     default:

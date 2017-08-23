@@ -22,6 +22,7 @@ const defaultConfig = {
   CRYPTO_PASSWORD: 'wildwolf',
   DOCKER_SOCKET: '/var/run/docker.sock',
   JWT_SECRET: 'spacesheep',
+  UPLOAD_DIR: './data/tmp',
 };
 
 function envConfig(env) {

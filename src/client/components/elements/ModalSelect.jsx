@@ -39,7 +39,7 @@ const ModalSelect = ({
   }
 
   return (
-    <Modal show={show} onHide={onHide}>
+    <Modal bsSize="large" show={show} onHide={onHide}>
       <Modal.Header closeButton>
         <Modal.Title>
           <PageTitle text={title} />

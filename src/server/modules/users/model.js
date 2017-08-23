@@ -12,7 +12,6 @@ const TABLE = 'users';
 const Roles = {
   ADMIN: 'admin',
   CHANGE: 'change',
-  READ: 'read',
 };
 
 const createToken = id => (jwt.sign({ id }, constants.JWT_SECRET));
@@ -22,7 +21,7 @@ export default class User {
     this.id = args.id || uuid();
     this.name = args.name;
     this.password = crypt.encrypt(args.password);
-    this.role = args.role || Roles.READ;
+    this.role = args.role || Roles.CHANGE;
     this.slug = slug(args.name);
   }
 
@@ -120,10 +119,6 @@ export default class User {
 
   static userIsAdmin(user) {
     return user.role === Roles.ADMIN;
-  }
-
-  static userCanChange(user) {
-    return user.role === Roles.ADMIN || user.role === Roles.CHANGE;
   }
 
   validate() {

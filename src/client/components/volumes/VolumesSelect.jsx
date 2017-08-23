@@ -3,7 +3,8 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
 
-import { fetchVolumes } from '../../actions/volumes';
+import { Spinner } from '../elements';
+import { dialog } from '../../utils';
 
 class VolumesSelect extends Component {
   constructor(props) {
@@ -15,10 +16,6 @@ class VolumesSelect extends Component {
     this.handleDoubleClick = this.handleDoubleClick.bind(this);
     this.handleReload = this.handleReload.bind(this);
     this.onSelect = this.onSelect.bind(this);
-  }
-
-  componentDidMount() {
-    this.props.fetchVolumes();
   }
 
   onSelect() {
@@ -34,17 +31,18 @@ class VolumesSelect extends Component {
   }
 
   handleReload() {
-    this.props.fetchVolumes();
     this.setState({ activeRow: null });
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.volumes);
+
     const activeRow = this.state.activeRow;
     const { data, isFetched } = this.props.volumes;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (isFetched) {
+    if (isFetched && !haveErrors) {
       const rows = data.map((element) => {
         const { id, name } = element;
         return (
@@ -97,13 +95,9 @@ VolumesSelect.propTypes = {
     data: PropTypes.array.isRequired,
     isFetched: PropTypes.bool.isRequired,
   }).isRequired,
-
-  fetchVolumes: PropTypes.func.isRequired,
   onSelect: PropTypes.func.isRequired,
 };
 
 export default connect(state => ({
   volumes: state.volumes,
-}), {
-  fetchVolumes,
-})(VolumesSelect);
+}), {})(VolumesSelect);

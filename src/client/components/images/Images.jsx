@@ -2,16 +2,18 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Grid, Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
+import fileDownload from 'react-file-download';
 
-import { fetchImages, deleteImage, pruneImages, clarifyImages } from '../../actions/images';
+import { fetchImages, deleteImage, pruneImages, clarifyImages, loadImages } from '../../actions/images';
 import { fetchSources } from '../../actions/sources';
-import { dialog, tables } from '../../utils';
+import { ImagesApi, dialog, tables } from '../../utils';
 import {
   deleteImage as deleteImageDialog,
   pullImage as pullImageDialog,
 } from './methods';
 
-import { PageTitle, Icon } from '../elements';
+import { PageTitle, Icon, Spinner } from '../elements';
+import UploadForm from './UploadForm';
 
 class Images extends Component {
   constructor(props) {
@@ -19,7 +21,7 @@ class Images extends Component {
 
     this.url = '/images';
 
-    this.state = { activeRow: null };
+    this.state = { activeRow: null, showUploadDialog: false };
 
     this.handleOnClick = this.handleOnClick.bind(this);
     this.handleDoubleClick = this.handleDoubleClick.bind(this);
@@ -29,6 +31,9 @@ class Images extends Component {
     this.handlePrune = this.handlePrune.bind(this);
     this.handleSynchronize = this.handleSynchronize.bind(this);
     this.handlePull = this.handlePull.bind(this);
+    this.generateUploadForm = this.generateUploadForm.bind(this);
+    this.showLoadForm = this.showLoadForm.bind(this);
+    this.handleDownload = this.handleDownload.bind(this);
   }
 
   componentDidMount() {
@@ -90,13 +95,39 @@ class Images extends Component {
     }
   }
 
+  showLoadForm() {
+    this.setState({ showUploadDialog: true });
+  }
+
+  async handleDownload(e) { // TODO: BUG - size of downloaded file is bigger then real
+    const activeRow = this.state.activeRow;
+    const data = tables.getTableElementById(this.props.images.data, activeRow);
+
+    const result = await ImagesApi.downloadImage(this.state.activeRow);
+    fileDownload(result, `${data.name}-${data.tag}.tar`);
+  }
+
+  generateUploadForm() {
+    return (
+      <UploadForm
+        title="Upload Images"
+        show={this.state.showUploadDialog}
+        uploading={this.props.images.uploading}
+        onHide={() => this.setState({ showUploadDialog: false })}
+        onFileUpload={this.props.loadImages}
+      />
+    );
+  }
+
   render() {
+    const haveErrors = dialog.showError(this.props.images);
+
     const activeRow = this.state.activeRow;
     const { data, isFetched } = this.props.images;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (isFetched) {
+    if (isFetched && !haveErrors) {
       const rows = data.map((element) => {
         const { id, name, tag, source } = element;
         const sourceData = tables.getTableElementById(this.props.sources.data, source);
@@ -142,14 +173,28 @@ class Images extends Component {
               </Button>
               <Button onClick={this.handlePrune}>
                 <Icon.Prune />
-                Prune
+                Delete Unused
               </Button>
             </ButtonGroup>
 
             <ButtonGroup>
               <Button disabled={activeRow === null} onClick={this.handlePull}>
                 <Icon.Pull />
-                Pull
+                Update
+              </Button>
+            </ButtonGroup>
+
+            <ButtonGroup>
+              <Button onClick={this.showLoadForm}>
+                <Icon.Load />
+                Upload
+              </Button>
+            </ButtonGroup>
+
+            <ButtonGroup>
+              <Button style={{ display: 'none' }} disabled={!this.state.activeRow} onClick={this.handleDownload}>
+                <Icon.Download />
+                Download
               </Button>
             </ButtonGroup>
           </ButtonToolbar>
@@ -165,6 +210,8 @@ class Images extends Component {
               {rows}
             </tbody>
           </Table>
+
+          {this.generateUploadForm()}
         </div>
       );
     }
@@ -185,12 +232,14 @@ Images.propTypes = {
   images: PropTypes.shape({
     data: PropTypes.array.isRequired,
     isFetched: PropTypes.bool.isRequired,
+    uploading: PropTypes.bool.isRequired,
   }).isRequired,
 
   fetchImages: PropTypes.func.isRequired,
   deleteImage: PropTypes.func.isRequired,
   pruneImages: PropTypes.func.isRequired,
   clarifyImages: PropTypes.func.isRequired,
+  loadImages: PropTypes.func.isRequired,
   fetchSources: PropTypes.func.isRequired,
 };
 
@@ -202,5 +251,6 @@ export default connect(state => ({
   deleteImage,
   pruneImages,
   clarifyImages,
+  loadImages,
   fetchSources,
 })(Images);

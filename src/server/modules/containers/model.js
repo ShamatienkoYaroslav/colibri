@@ -2,6 +2,8 @@
 
 import uuid from 'uuid';
 import slug from 'slug';
+import os from 'os';
+import isDocker from 'is-docker';
 
 import { database, docker } from '../../config';
 import Template from '../templates/model';
@@ -111,6 +113,9 @@ export default class Container {
     let container = new Container({ ...args, auto: true });
     const messages = container.validate();
     if (messages.length === 0) {
+      if (container.isCurrentContainer()) {
+        return { container: {}, messages: [] };
+      }
       container = container.toJSON();
       db.get(TABLE).push(container).write();
 
@@ -251,11 +256,28 @@ export default class Container {
         status: dockerContainer.State,
         containerId: dockerContainer.Id,
       });
-      if (result.messages.length === 0) {
+      if (result.messages.length !== 0) {
         messages.concat(result.messages);
       }
     }
     return { messages };
+  }
+
+  async isCurrentContainer() {
+    if (isDocker()) {
+      const hostname = os.hostname();
+      try {
+        const info = await docker.inspect(this.containerId);
+        const inspectedHostname = info.Config.Hostname;
+        if (hostname === inspectedHostname) {
+          const hostImage = info.Config.Image;
+          return true;
+        }
+      } catch (e) {
+        return false;
+      }
+    }
+    return false;
   }
 
   validate() {

@@ -7,7 +7,7 @@ import { fetchTemplates, deleteTemplate } from '../../actions/templates';
 import { fetchImages } from '../../actions/images';
 import { dialog, tables } from '../../utils';
 
-import { PageTitle, Icon } from '../elements';
+import { PageTitle, Icon, Spinner } from '../elements';
 
 class Templates extends Component {
   constructor(props) {
@@ -66,13 +66,15 @@ class Templates extends Component {
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.templates);
+
     const activeRow = this.state.activeRow;
     const { data: templates, isFetched: templatesIsFetched } = this.props.templates;
     const { data: images, isFetched: imagesIsFetched } = this.props.images;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (templatesIsFetched && imagesIsFetched) {
+    if (templatesIsFetched && imagesIsFetched && !haveErrors) {
       const rows = templates.map((element) => {
         const { id, name, image } = element;
         const imageData = tables.getTableElementById(images, image);

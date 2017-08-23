@@ -10,16 +10,14 @@ import {
   getRoles,
 } from './methods';
 
-import { PageTitle, Icon } from '../elements';
+import { PageTitle, Icon, Spinner} from '../elements';
 
 const getRole = (role) => {
   const Roles = getRoles();
   if (role === Roles.ADMIN) {
     return 'Admin';
   } else if (role === Roles.CHANGE) {
-    return 'Change';
-  } else if (role === Roles.READ) {
-    return 'Read';
+    return 'User';
   }
 };
 
@@ -68,12 +66,14 @@ class Users extends Component {
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.users);
+
     const activeRow = this.state.activeRow;
     const { data, isFetched } = this.props.users;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (isFetched) {
+    if (isFetched && !haveErrors) {
       const rows = data.map((element) => {
         const { id, name, role } = element;
         return (

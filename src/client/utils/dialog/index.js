@@ -1,5 +1,31 @@
 import swal from 'sweetalert2';
 
+import constants from '../../constants';
+
+export const showError = (table, redirect = null) => {
+  const e = table.e;
+  if (e) {
+    for (let i = 0; i < e.length; i += 1) {
+      swal({
+        title: 'Opps...',
+        text: e[i].toString(),
+        type: 'error',
+        confirmButtonColor: constants.BRAND_COLOR,
+        preConfirm: () => (
+          new Promise((resolve) => {
+            if (redirect) {
+              redirect();
+            }
+            resolve();
+          })
+        ),
+      });
+    }
+    return e.length !== 0;
+  }
+  return false;
+};
+
 export const showQuestionDialog = (html, fn) => {
   swal({
     html,
@@ -7,7 +33,7 @@ export const showQuestionDialog = (html, fn) => {
     showCancelButton: true,
     confirmButtonText: 'Yes',
     cancelButtonText: 'No',
-    confirmButtonColor: '#EA5455',
+    confirmButtonColor: constants.BRAND_COLOR,
     showLoaderOnConfirm: true,
     useRejections: false,
     preConfirm: () => (
@@ -17,7 +43,7 @@ export const showQuestionDialog = (html, fn) => {
       })
     ),
   });
-}
+};
 
 export const showOnCloseDialog = (fn) => {
   showQuestionDialog(
@@ -34,7 +60,7 @@ export const showConfirmedAsyncDialog = (firstStepHtml, secondStepHtml, fn) => {
     showCancelButton: true,
     confirmButtonText: 'Yes',
     cancelButtonText: 'No',
-    confirmButtonColor: '#EA5455',
+    confirmButtonColor: constants.BRAND_COLOR,
     showLoaderOnConfirm: true,
     useRejections: false,
     preConfirm: () => (
@@ -50,8 +76,8 @@ export const showConfirmedAsyncDialog = (firstStepHtml, secondStepHtml, fn) => {
       swal({
         html: secondStepHtml,
         type: 'success',
-        confirmButtonColor: '#EA5455',
+        confirmButtonColor: constants.BRAND_COLOR,
       });
     }
   });
-}
+};

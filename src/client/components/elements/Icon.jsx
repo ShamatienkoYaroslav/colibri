@@ -50,4 +50,12 @@ Icon.Stop = () => (
   <Icon glyph="pause" />
 );
 
+Icon.Load = () => (
+  <Icon glyph="arrow-down" />
+);
+
+Icon.Download = () => (
+  <Icon glyph="arrow-up" />
+);
+
 export default Icon;

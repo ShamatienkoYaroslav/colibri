@@ -28,6 +28,10 @@ export const PRUNE_IMAGES = 'PRUNE_IMAGES';
 export const PRUNE_IMAGES_ERROR = 'PRUNE_IMAGES_ERROR';
 export const PRUNE_IMAGES_SUCCESS = 'PRUNE_IMAGES_SUCCESS';
 
+export const UPLOAD_IMAGES = 'UPLOAD_IMAGES';
+export const UPLOAD_IMAGES_ERROR = 'UPLOAD_IMAGES_ERROR';
+export const UPLOAD_IMAGES_SUCCESS = 'UPLOAD_IMAGES_SUCCESS';
+
 export const fetchImages = () => (
   async (dispatch) => {
     dispatch({ type: FETCH_IMAGES });
@@ -163,6 +167,24 @@ export const pruneImages = () => (
     } catch (e) {
       return dispatch({
         type: PRUNE_IMAGES_ERROR,
+        e,
+      });
+    }
+  }
+);
+
+export const loadImages = file => (
+  async (dispatch) => {
+    dispatch({ type: UPLOAD_IMAGES });
+    try {
+      const data = await ImagesApi.loadImages(file);
+      if (data.messages.length !== 0) {
+        throw data.messages;
+      }
+      return dispatch({ type: UPLOAD_IMAGES_SUCCESS, data });
+    } catch (e) {
+      return dispatch({
+        type: UPLOAD_IMAGES_ERROR,
         e,
       });
     }

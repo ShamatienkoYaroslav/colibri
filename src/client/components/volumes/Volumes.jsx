@@ -6,7 +6,7 @@ import { Grid, Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap
 import { fetchVolumes, deleteVolume, pruneVolumes, synchronizeVolumes } from '../../actions/volumes';
 import { dialog } from '../../utils';
 
-import { PageTitle, Icon } from '../elements';
+import { PageTitle, Icon, Spinner } from '../elements';
 
 class Volumes extends Component {
   constructor(props) {
@@ -86,12 +86,14 @@ class Volumes extends Component {
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.volumes);
+
     const activeRow = this.state.activeRow;
     const { data, isFetched } = this.props.volumes;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (isFetched) {
+    if (isFetched && !haveErrors) {
       const rows = data.map((element) => {
         const { id, name, type } = element;
         return (
@@ -133,7 +135,7 @@ class Volumes extends Component {
                 </Button>
                 <Button onClick={this.handlePrune}>
                   <Icon.Prune />
-                  Prune
+                  Delete Unused
                 </Button>
               </ButtonGroup>
             </ButtonToolbar>

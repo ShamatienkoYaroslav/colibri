@@ -3,7 +3,8 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
 
-import { fetchSources } from '../../actions/sources';
+import { Spinner } from '../elements';
+import { dialog } from '../../utils';
 
 class SourcesSelect extends Component {
   constructor(props) {
@@ -15,10 +16,6 @@ class SourcesSelect extends Component {
     this.handleDoubleClick = this.handleDoubleClick.bind(this);
     this.handleReload = this.handleReload.bind(this);
     this.onSelect = this.onSelect.bind(this);
-  }
-
-  componentDidMount() {
-    this.props.fetchSources();
   }
 
   onSelect() {
@@ -34,17 +31,18 @@ class SourcesSelect extends Component {
   }
 
   handleReload() {
-    this.props.fetchSources();
     this.setState({ activeRow: null });
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.sources);
+
     const activeRow = this.state.activeRow;
     const { data, isFetched } = this.props.sources;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (isFetched) {
+    if (isFetched && !haveErrors) {
       const rows = data.map((element) => {
         const { id, name } = element;
         return (
@@ -98,12 +96,9 @@ SourcesSelect.propTypes = {
     isFetched: PropTypes.bool.isRequired,
   }).isRequired,
 
-  fetchSources: PropTypes.func.isRequired,
   onSelect: PropTypes.func.isRequired,
 };
 
 export default connect(state => ({
   sources: state.sources,
-}), {
-  fetchSources,
-})(SourcesSelect);
+}), {})(SourcesSelect);

@@ -20,7 +20,7 @@ import {
   stopContainer as stopContainerDialog,
 } from './methods';
 
-import { PageTitle, Icon } from '../elements';
+import { PageTitle, Icon, Spinner } from '../elements';
 
 class Containers extends Component {
   constructor(props) {
@@ -111,14 +111,16 @@ class Containers extends Component {
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.containers);
+
     const activeRow = this.state.activeRow;
     const { data: containers, isFetched: containersIsFetched } = this.props.containers;
     const { data: images, isFetched: imagesIsFetched } = this.props.images;
     const { data: templates, isFetched: templatesIsFetched } = this.props.templates;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (containersIsFetched && imagesIsFetched && templatesIsFetched) {
+    if (containersIsFetched && imagesIsFetched && templatesIsFetched && !haveErrors) {
       const rows = containers.map((element) => {
         const { id, name, image, template, status } = element;
         const imageData = tables.getTableElementById(images, image);
@@ -174,7 +176,7 @@ class Containers extends Component {
               </Button>
               <Button onClick={this.handlePrune}>
                 <Icon.Prune />
-                Prune
+                Delete Unused
               </Button>
             </ButtonGroup>
 
@@ -221,6 +223,10 @@ class Containers extends Component {
 Containers.propTypes = {
   history: PropTypes.shape().isRequired,
   images: PropTypes.shape({
+    data: PropTypes.array.isRequired,
+    isFetched: PropTypes.bool.isRequired,
+  }).isRequired,
+  templates: PropTypes.shape({
     data: PropTypes.array.isRequired,
     isFetched: PropTypes.bool.isRequired,
   }).isRequired,

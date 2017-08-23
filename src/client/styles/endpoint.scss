@@ -72,3 +72,32 @@ body {
 .icon {
   padding-right: 5px;
 }
+
+.file-upload {
+  .annotation {
+    margin-bottom: 20px;
+  }
+
+  .btn-file-upload {
+    font-size: 14.5px;
+  }
+
+  .spinner {
+    margin: auto;
+    width: 60px;
+    margin-top: 15px;
+  }
+
+  .footer-file-upload {
+    margin-top: 15px;
+    text-align: center;
+    font-weight: bold;
+    color: $brand-primary;
+  }
+}
+
+.spinner {
+  margin: auto;
+  width: 60px;
+  margin-top: 50px;
+}

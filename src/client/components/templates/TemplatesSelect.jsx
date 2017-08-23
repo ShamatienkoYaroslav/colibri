@@ -3,10 +3,10 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
 
-import { fetchTemplates } from '../../actions/templates';
 import { fetchImages } from '../../actions/images';
 
-import { tables } from '../../utils';
+import { Spinner } from '../elements';
+import { tables, dialog } from '../../utils';
 
 class TemplatesSelect extends Component {
   constructor(props) {
@@ -22,7 +22,6 @@ class TemplatesSelect extends Component {
 
   componentDidMount() {
     this.props.fetchImages();
-    this.props.fetchTemplates();
   }
 
   onSelect() {
@@ -38,18 +37,20 @@ class TemplatesSelect extends Component {
   }
 
   handleReload() {
-    this.props.fetchTemplates();
+    this.props.fetchImages();
     this.setState({ activeRow: null });
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.templates);
+
     const activeRow = this.state.activeRow;
     const { data: templates, isFetched: templateIsFetched } = this.props.templates;
     const { data: images, isFetched: imagesIsFetched } = this.props.images;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (templateIsFetched && imagesIsFetched) {
+    if (templateIsFetched && imagesIsFetched && !haveErrors) {
       const rows = templates.map((element) => {
         const { id, name, image } = element;
         const imageData = tables.getTableElementById(images, image);
@@ -111,8 +112,6 @@ TemplatesSelect.propTypes = {
     data: PropTypes.array.isRequired,
     isFetched: PropTypes.bool.isRequired,
   }).isRequired,
-
-  fetchTemplates: PropTypes.func.isRequired,
   fetchImages: PropTypes.func.isRequired,
   onSelect: PropTypes.func.isRequired,
 };
@@ -121,7 +120,6 @@ export default connect(state => ({
   templates: state.templates,
   images: state.images,
 }), {
-  fetchTemplates,
   fetchImages,
 })(TemplatesSelect);
 

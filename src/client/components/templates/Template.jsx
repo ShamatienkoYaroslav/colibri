@@ -22,9 +22,9 @@ import {
 import { fetchTemplate, createTemplate, changeTemplate, deleteTemplate } from '../../actions/templates';
 import { fetchImages } from '../../actions/images';
 import { fetchVolumes } from '../../actions/volumes';
-import { dialog, tables, objects } from '../../utils';
+import { dialog, tables, validator } from '../../utils';
 
-import { PageTitle, ModalSelect, Icon } from '../elements';
+import { PageTitle, ModalSelect, Icon, Spinner } from '../elements';
 
 const RestartPolicy = {
   NONE: '',
@@ -50,6 +50,28 @@ const ReadOnly = {
   TRUE: true,
 };
 
+const validateField = (data, field, volumesActiveRow = null) => {
+  if (field === 'name') {
+    return validator.validateField('name', data.name, 'Name is required');
+  } else if (field === 'image') {
+    return validator.validateField('image', data.image, 'Image is required');
+  } else if (field === 'volume' && volumesActiveRow !== null) {
+    return validator.validateField('volume', data.volumes[volumesActiveRow].volume, 'Volume is required');
+  } else if (field === 'internalDir' && volumesActiveRow !== null) {
+    return validator.validateField('internalDir', data.volumes[volumesActiveRow].internalDir, 'Internal directory is required');
+  } 
+  return null;
+};
+
+const validate = (state) => (
+  validator.generateErrors([
+    validateField(state.data, 'name'),
+    validateField(state.data, 'image'),
+    validateField(state.data, 'volume', state.volumesActiveRow),
+    validateField(state.data, 'internalDir', state.volumesActiveRow),
+  ])
+);
+
 class Template extends Component {
   constructor(props) {
     super(props);
@@ -57,6 +79,7 @@ class Template extends Component {
     this.mainUrl = '/templates';
     this.id = this.props.match.params.id;
     this.ports = [];
+    this.shouldReceiveProps = false;
 
     this.state = {
       new: !this.id,
@@ -65,28 +88,10 @@ class Template extends Component {
       tableToSelect: '',
       portsActiveRow: null,
       volumesActiveRow: null,
-      data: {
-        name: null,
-        image: null,
-        volumes: [],
-        config: {
-          ExposedPorts: null,
-          HostConfig: {
-            PortBindings: null,
-            Privileged: null,
-            RestartPolicy: {
-              Name: null,
-              MaximumRetryCount: null,
-            },
-            LogConfig: {
-              Type: null,
-            },
-          },
-        },
-      },
+      data: this.getDataById(this.props.templates.data),
+      e: {},
     };
 
-    this.getData = this.getData.bind(this);
     this.getDataById = this.getDataById.bind(this);
     this.fetchData = this.fetchData.bind(this);
     this.goBack = this.goBack.bind(this);
@@ -110,33 +115,52 @@ class Template extends Component {
     this.addVolumesRow = this.addVolumesRow.bind(this);
     this.deletePortsRow = this.deletePortsRow.bind(this);
     this.deleteVolumesRow = this.deleteVolumesRow.bind(this);
+    this.handleHideChange = this.handleHideChange.bind(this);
   }
 
   componentDidMount() {
     this.fetchData();
   }
 
-  getData() {
-    return objects.merge(this.getDataById(), this.state.data);
-  }
-
-  getDataById() {
-    let data = {};
-    const collection = this.props.templates.data;
-    for (let i = 0; i < collection.length; i += 1) {
-      if (collection[i].id === this.id) {
-        data = collection[i];
-        break;
-      }
+  componentWillReceiveProps(nextProps) {
+    if (!nextProps.templates.propsReady) {
+      this.shouldReceiveProps = true;
     }
-    return data;
+
+    if (this.shouldReceiveProps && nextProps.templates.propsReady) {
+      this.setState({ data: this.getDataById(nextProps.templates.data) });
+      this.shouldReceiveProps = false;
+    }
   }
 
-  fetchData() {
+  getDataById(table) {
+    return tables.getTableElementById(table, this.id) || {
+      name: '',
+      image: '',
+      volumes: [],
+      hide: false,
+      config: {
+        ExposedPorts: '',
+        HostConfig: {
+          PortBindings: '',
+          Privileged: false,
+          RestartPolicy: {
+            Name: RestartPolicy.NONE,
+            MaximumRetryCount: 0,
+          },
+          LogConfig: {
+            Type: LogConfig.NONE,
+          },
+        },
+      },
+    };
+  }
+
+  async fetchData() {
     this.props.fetchImages();
     this.props.fetchVolumes();
     if (!this.state.new) {
-      this.props.fetchTemplate(this.id);
+      await this.props.fetchTemplate(this.id);
     }
   }
 
@@ -144,16 +168,20 @@ class Template extends Component {
     this.props.history.push(this.mainUrl);
   }
 
-  handleChange(e) {
-    if (typeof e === 'string') {
-      this.setState({ showSelect: true, tableToSelect: e });
+  handleChange(event) {
+    if (typeof event === 'string') {
+      this.setState({ showSelect: true, tableToSelect: event });
     } else {
+      const name = event.target.name;
+      const data = {
+        ...this.state.data,
+        [name]: event.target.value,
+      };
+      const e = validator.generateNextErrorsState(this.state.e, name, validateField(data, name));
       this.setState({
         modified: true,
-        data: {
-          ...this.state.data,
-          [e.target.name]: e.target.value,
-        },
+        data,
+        e,
       });
     }
   }
@@ -166,31 +194,36 @@ class Template extends Component {
     }
   }
 
-  handleSave() {
-    const config = {
-      ...this.state.data.config,
-      ExposedPorts: this.generateExposedPorts(),
-      HostConfig: {
-        ...this.state.data.config.HostConfig,
-        PortBindings: this.generatePortsBindings(),
-      },
-    };
-    
-    if (this.state.new) {
-      this.id = uuid();
-      this.props.createTemplate({ ...this.state.data, id: this.id, config });
+  async handleSave() {
+    const e = validate(this.state);
+    if (Object.keys(e).length !== 0) {
+      this.setState({ e });
     } else {
-      this.props.changeTemplate(this.id, { ...this.getData(), config });
+      const config = {
+        ...this.state.data.config,
+        ExposedPorts: this.generateExposedPorts(),
+        HostConfig: {
+          ...this.state.data.config.HostConfig,
+          PortBindings: this.generatePortsBindings(),
+        },
+      };
+      
+      if (this.state.new) {
+        this.id = uuid();
+        await this.props.createTemplate({ ...this.state.data, id: this.id, config });
+      } else {
+        await this.props.changeTemplate(this.id, { ...this.state.data, config });
+      }
+      await this.fetchData();
+
+      this.props.history.push(`${this.mainUrl}/${this.id}`);
+
+      this.setState({ modified: false, new: false });
     }
-    this.fetchData();
-
-    this.props.history.push(`${this.mainUrl}/${this.id}`);
-
-    this.setState({ modified: false, new: false });
   }
 
   handleDelete() {
-    const data = this.getData();
+    const data = this.state.data;
     dialog.showQuestionDialog(
       `Do you want to delete the template <strong>${data.name}</strong>?`,
       () => {
@@ -202,17 +235,30 @@ class Template extends Component {
 
   handleSelect(table, value) {
     if (table === 'images') {
-      this.setState({ modified: true, showSelect: false, data: { ...this.state.data, image: value } });
-    } else if (table === 'volumes') {
-      const volumes = this.getData().volumes;
-      volumes[this.state.volumesActiveRow]['volume'] = value;
+      const data = {
+        ...this.state.data,
+        image: value,
+      };
+      const e = validator.generateNextErrorsState(this.state.e, 'image', validateField(data, 'image'));
       this.setState({
         modified: true,
         showSelect: false,
-        data: {
-          ...this.state.data,
-          volumes,
-        },
+        data,
+        e,
+      });
+    } else if (table === 'volumes') {
+      const volumes = this.state.data.volumes;
+      volumes[this.state.volumesActiveRow]['volume'] = value;
+      const data = {
+        ...this.state.data,
+        volumes,
+      };
+      const e = validator.generateNextErrorsState(this.state.e, 'volume', validateField(data, 'volume'));
+      this.setState({
+        modified: true,
+        showSelect: false,
+        data,
+        e,
       });
     }
   }
@@ -224,7 +270,7 @@ class Template extends Component {
       if (this.state.data.config.HostConfig.Privileged) {
         value = false;
       } else {
-        value = value === 'on' ? true : false;
+        value = value === 'on';
       }
       
     }
@@ -295,7 +341,7 @@ class Template extends Component {
   }
 
   handleVolumesOnChange(e) {
-    const volumes = this.getData().volumes;
+    const volumes = this.state.data.volumes;
     volumes[this.state.volumesActiveRow][e.target.name] = e.target.value;
     this.setState({
       modified: true,
@@ -369,7 +415,7 @@ class Template extends Component {
   }
 
   addVolumesRow() {
-    const volumes = this.getData().volumes;
+    const volumes = this.state.data.volumes;
     volumes.push({ volume: '', internalDir: '', readOnly: false });
     this.setState({
       modified: true,
@@ -387,7 +433,7 @@ class Template extends Component {
   }
 
   deleteVolumesRow() {
-    const volumes = this.getData().volumes;
+    const volumes = this.state.data.volumes;
     volumes.splice(this.state.volumesActiveRow, 1);
     this.setState({
       modified: true,
@@ -399,13 +445,35 @@ class Template extends Component {
     });
   }
 
+  handleHideChange(e) {
+    const name = e.target.name;
+    let value = e.target.value;
+    if (name === 'hide') {
+      if (this.state.data.hide) {
+        value = false;
+      } else {
+        value = value === 'on';
+      }
+    }
+
+    this.setState({
+      modified: true,
+      data: {
+        ...this.state.data,
+        hide: value,
+      },
+    });
+  }
+
   render() {
+    const haveErrors = dialog.showError(this.props.templates, this.goBack);
+
     const { data: images, isFetched: imagesIsFetched } = this.props.images;
     const { data: volumes, isFetched: volumesIsFetched } = this.props.volumes;
 
-    let elementToRender = 'Loading...';
-    if ((this.state.new || this.props.templates.isFetched) && imagesIsFetched && volumesIsFetched) {
-      const data = this.getData();
+    let elementToRender = <Spinner />;
+    if ((this.state.new || this.props.templates.isFetched) && imagesIsFetched && volumesIsFetched && !haveErrors) {
+      const { data, e } = this.state;
       const title = `${data.name} ${this.state.modified || this.state.new ? '*' : ''}`;
       const image = tables.getTableElementById(images, data.image);
       const imageName = image ? `${image.name}:${image.tag}` : '';
@@ -473,7 +541,7 @@ class Template extends Component {
                         <td>
                           <FormControl
                             type="number"
-                            value={hostPort || 80}
+                            value={hostPort || 0}
                             name="hostPort"
                             placeholder="Enter host port"
                             onChange={this.handlePortsOnChange}
@@ -482,7 +550,7 @@ class Template extends Component {
                         <td>
                           <FormControl
                             type="number"
-                            value={exposedPort || 80}
+                            value={exposedPort || 0}
                             name="exposedPort"
                             placeholder="Enter exposed port"
                             onChange={this.handlePortsOnChange}
@@ -552,23 +620,28 @@ class Template extends Component {
                         className={className}
                       >
                         <td>
-                          <InputGroup>
-                            <FormControl
-                              type="text"
-                              value={volumeName}
-                              placeholder="Select volume"
-                            />
-                            <InputGroup.Addon onClick={() => this.handleChange('volumes')}>...</InputGroup.Addon>
-                          </InputGroup>
+                          <FormGroup validationState={validator.getValidationState(e.volume)}>
+                            <InputGroup>
+                              <FormControl
+                                type="text"
+                                value={volumeName}
+                                placeholder={validator.getValidationMessage(e.volume) || 'Select volume'}
+                                onChange={() => {}}
+                              />
+                              <InputGroup.Addon onClick={() => this.handleChange('volumes')}>...</InputGroup.Addon>
+                            </InputGroup>
+                          </FormGroup>
                         </td>
                         <td>
-                          <FormControl
-                            type="text"
-                            value={internalDir}
-                            name="internalDir"
-                            placeholder="Enter internal directory"
-                            onChange={this.handleVolumesOnChange}
-                          />
+                          <FormGroup validationState={validator.getValidationState(e.internalDir)}>
+                            <FormControl
+                              type="text"
+                              value={internalDir}
+                              name="internalDir"
+                              placeholder={validator.getValidationMessage(e.internalDir) || 'Enter internal directory'}
+                              onChange={this.handleVolumesOnChange}
+                            />
+                          </FormGroup>
                         </td>
                         <td>
                           <FormControl
@@ -620,13 +693,13 @@ class Template extends Component {
             <form>
               <Row>
                 <Col sm={12}>
-                  <FormGroup controlId="name">
+                  <FormGroup controlId="name" validationState={validator.getValidationState(e.name)}>
                     <ControlLabel>Name</ControlLabel>
                     <FormControl
                       type="text"
                       value={data.name || ''}
                       name="name"
-                      placeholder="Enter name"
+                      placeholder={validator.getValidationMessage(e.name) || 'Enter name'}
                       onChange={this.handleChange}
                     />
                   </FormGroup>
@@ -635,13 +708,14 @@ class Template extends Component {
 
               <Row>
                 <Col sm={12}>
-                  <FormGroup controlId="image">
+                  <FormGroup controlId="image" validationState={validator.getValidationState(e.image)}>
                     <ControlLabel>Image</ControlLabel>
                     <InputGroup>
                       <FormControl
                         type="text"
                         value={imageName}
-                        placeholder="Select image"
+                        placeholder={validator.getValidationMessage(e.image) || 'Select image'}
+                        onChange={() => {}}
                       />
                       <InputGroup.Addon onClick={() => this.handleChange('images')}>...</InputGroup.Addon>
                     </InputGroup>
@@ -721,6 +795,18 @@ class Template extends Component {
                 </Col>
               </Row>
 
+              <Row>
+                <Col sm={1}>
+                  <Checkbox
+                    name="hide"
+                    checked={data.hide}
+                    onChange={this.handleHideChange}
+                  >
+                    Hiden
+                  </Checkbox>
+                </Col>
+              </Row>
+
             </form>
           </Grid>
 
@@ -741,6 +827,7 @@ Template.propTypes = {
   templates: PropTypes.shape({
     data: PropTypes.array.isRequired,
     isFetched: PropTypes.bool.isRequired,
+    propsReady: PropTypes.bool.isRequired,
   }).isRequired,
   images: PropTypes.shape({
     data: PropTypes.array.isRequired,

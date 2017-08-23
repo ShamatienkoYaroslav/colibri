@@ -90,6 +90,31 @@ class ImagesApi {
     });
     return data;
   }
+
+  async loadImages(file) {
+    const fd = new FormData();
+    fd.append('image', file);
+    const { data } = await axios({
+      method: 'post',
+      url: `${this.path}/upload`,
+      headers: {
+        authorization: Auth.getToken(),
+      },
+      timeout: 0,
+      data: fd,
+    });
+    return data;
+  }
+
+  async downloadImage(id) {
+    const { data } = await axios({
+      method: 'get',
+      url: `${this.path}/${id}/download`,
+      headers: { authorization: Auth.getToken() },
+      timeout: 0,
+    });
+    return data;
+  }
 }
 
 export default new ImagesApi();

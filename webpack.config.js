@@ -4,6 +4,32 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const path = require('path');
 
+const propOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+
+const externals = [];
+if (propOrTest) {
+  externals.push(nodeExternals());
+}
+
+const serverRules = [
+  {
+    test: /\.js$/,
+    exclude: /node_modules/,
+    use: ['babel-loader'],
+  },
+];
+
+if (!propOrTest) {
+  serverRules.push({
+    test: /node_modules\/JSONStream\/index\.js$/,
+    loader: 'string-replace-loader',
+    query: {
+      search: '#! /usr/bin/env node',
+      replace: ' ',
+    },
+  });
+}
+
 const extractText = new ExtractTextPlugin({
   filename: '/css/[name].css',
   disable: false,
@@ -19,7 +45,7 @@ module.exports = [
   {
     name: 'server',
     target: 'node',
-    externals: [nodeExternals()],
+    externals: externals,
     entry: {
       index: './src/server/index.js',
     },
@@ -29,13 +55,7 @@ module.exports = [
       libraryTarget: 'commonjs2',
     },
     module: {
-      rules: [
-        {
-          test: /\.js$/,
-          exclude: /node_modules/,
-          use: 'babel-loader',
-        },
-      ],
+      rules: serverRules,
     },
   },
   {

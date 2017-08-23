@@ -3,7 +3,8 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Table, ButtonToolbar, ButtonGroup, Button } from 'react-bootstrap';
 
-import { fetchImages } from '../../actions/images';
+import { Spinner } from '../elements';
+import { dialog } from '../../utils';
 
 class ImagesSelect extends Component {
   constructor(props) {
@@ -15,10 +16,6 @@ class ImagesSelect extends Component {
     this.handleDoubleClick = this.handleDoubleClick.bind(this);
     this.handleReload = this.handleReload.bind(this);
     this.onSelect = this.onSelect.bind(this);
-  }
-
-  componentDidMount() {
-    this.props.fetchImages();
   }
 
   onSelect() {
@@ -34,17 +31,18 @@ class ImagesSelect extends Component {
   }
 
   handleReload() {
-    this.props.fetchImages();
     this.setState({ activeRow: null });
   }
 
   render() {
+    const haveErrors = dialog.showError(this.props.images);
+
     const activeRow = this.state.activeRow;
     const { data, isFetched } = this.props.images;
 
-    let elementToRender = 'Loading...';
+    let elementToRender = <Spinner />;
 
-    if (isFetched) {
+    if (isFetched && !haveErrors) {
       const rows = data.map((element) => {
         const { id, name, tag } = element;
         return (
@@ -97,13 +95,9 @@ ImagesSelect.propTypes = {
     data: PropTypes.array.isRequired,
     isFetched: PropTypes.bool.isRequired,
   }).isRequired,
-
-  fetchImages: PropTypes.func.isRequired,
   onSelect: PropTypes.func.isRequired,
 };
 
 export default connect(state => ({
   images: state.images,
-}), {
-  fetchImages,
-})(ImagesSelect);
+}), {})(ImagesSelect);

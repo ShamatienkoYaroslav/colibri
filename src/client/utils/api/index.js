@@ -7,7 +7,7 @@ import SourcesApi from './sources';
 import TemplatesApi from './templates';
 import VolumesApi from './volumes';
 
-axios.defaults.baseURL = 'http://localhost:5000/api/v1';
+axios.defaults.baseURL = '/api/v1';
 axios.defaults.headers.post['Content-Type'] = 'application/json';
 
 export { UsersApi, ContainersApi, ImagesApi, SourcesApi, TemplatesApi, VolumesApi };

@@ -4,9 +4,12 @@ import uuid from 'uuid';
 import slug from 'slug';
 import JSFtp from 'jsftp';
 import fs from 'fs';
+import fse from 'fs-extra';
+import path from 'path';
 
 import { database, docker } from '../../config';
 import { crypt } from '../../utils';
+import constants from '../../config/constants';
 import ImageSource, { resources } from '../image-sources/model';
 
 const db = database();
@@ -20,6 +23,7 @@ export default class Image {
     this.tag = args.tag || 'latest';
     this.slug = slug(`${this.name}:${this.tag}`);
     this.source = args.source || resources.DOCKER_HUB;
+    this.hide = args.hide || false;
   }
 
   static getImages(showAll = true) {
@@ -56,7 +60,6 @@ export default class Image {
     if (messages.length === 0) {
       image = image.toJSON();
       db.get(TABLE).push(image).write();
-      console.log(db.get(TABLE).value());
       return { image, messages };
     }
     return { image: {}, messages };
@@ -158,14 +161,28 @@ export default class Image {
 
       try {
         const stream = await docker.loadImage(imageFilename);
+        stream.on('data', (chunk) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Received ${chunk.length} bytes of data.`);
+          }
+        });
         stream.on('end', () => {
           fs.unlinkSync(imageFilename);
-          cb(null, { success: true, messages: ['Image was updated'] });
+          cb(null, { success: true, messages: [] });
         });
       } catch (e) {
         cb(null, { success: false, messages: ['Can\'t build image from file', e.message] });
       }
     });
+  }
+
+  static pullImageFromFile(filename, cb) {
+    Image.loadImagefromFile(path.join(constants.UPLOAD_DIR, filename))
+      .then(async () => {
+        const result = await Image.refreshImages(true);
+        cb(null, { images: result.images, messages: result.messages });
+      })
+      .catch(e => cb(null, { images: [], messages: ['Can\'t load image from file', e.message] }));
   }
 
   static async refreshImages(createImages = true) {
@@ -177,22 +194,28 @@ export default class Image {
 
     const usedImages = [];
     const images = Image.getImages();
-    const dockerImages = await docker.listImages();
-    for (const image of images) {
-      let usedImage = false;
-      for (const dockerImage of dockerImages) {
-        for (const imageRT of dockerImage.RepoTags) {
-          if (`${image.name}:${image.tag}` === imageRT) {
-            usedImage = true;
-            break;
+    try {
+      const dockerImages = await docker.listImages();
+      for (const image of images) {
+        let usedImage = false;
+        for (const dockerImage of dockerImages) {
+          if (dockerImage.RepoTags) {
+            for (const imageRT of dockerImage.RepoTags) {
+              if (`${image.name}:${image.tag}` === imageRT) {
+                usedImage = true;
+                break;
+              }
+            }
           }
         }
+        if (usedImage) {
+          usedImages.push(image);
+        }
       }
-      if (usedImage) {
-        usedImages.push(image);
-      }
+      db.set(TABLE, usedImages).write();
+    } catch (e) {
+      messages.push(e.toString());
     }
-    db.set(TABLE, usedImages).write();
     return { images: usedImages, messages };
   }
 
@@ -205,24 +228,84 @@ export default class Image {
   static async createImagesFromHost() {
     const images = [];
     const messages = [];
-    const dockerImages = await docker.listImages();
-    for (const dockerImage of dockerImages) {
-      for (const imageRT of dockerImage.RepoTags) {
-        const repoTags = imageRT.split(':');
-        const name = repoTags[0];
-        const tag = repoTags[1];
-        const image = db.get(TABLE).find({ slug: slug(`${name}:${tag}`) }).value();
-        if (!image) {
-          const result = Image.createImage({ id: dockerImage.RepoTags[0], name, tag });
-          if (result.messages.length === 0) {
-            messages.concat(result.messages);
-          } else {
-            images.push(result.image);
+    try {
+      const dockerImages = await docker.listImages();
+      for (const dockerImage of dockerImages) {
+        if (dockerImage.RepoTags) {
+          for (const imageRT of dockerImage.RepoTags) {
+            const repoTags = imageRT.split(':');
+            const name = repoTags[0];
+            const tag = repoTags[1];
+            const image = db.get(TABLE).find({ slug: slug(`${name}:${tag}`) }).value();
+            if (!image) {
+              const result = Image.createImage({ name, tag });
+              if (result.messages.length === 0) {
+                messages.concat(result.messages);
+              } else {
+                images.push(result.image);
+              }
+            }
           }
         }
       }
+    } catch (e) {
+      messages.push(e.toString());
     }
     return { images, messages };
+  }
+
+  static loadImagefromFile(filename) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const stream = await docker.loadImage(filename);
+        stream.on('data', (chunk) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Received ${chunk.length} bytes of data.`);
+          }
+        });
+        stream.on('end', () => {
+          fs.unlinkSync(filename);
+          resolve();
+        });
+      } catch (e) {
+        console.log(e);
+        reject(e);
+      }
+    });
+  }
+
+  static getFileToDownloadImage(id) {
+    return new Promise(async (resolve) => {
+      let filename = null;
+      const messages = [];
+      const image = Image.findById(id).value();
+      if (!image) {
+        messages.push('No such image with this id');
+        return { success: false, messages };
+      }
+
+      try {
+        const imageName = `${image.name}:${image.tag}`;
+        filename = path.join(constants.UPLOAD_DIR, `${imageName}.tar`);
+        fse.ensureFileSync(filename);
+        const writeStream = fs.createWriteStream(filename);
+        
+        const dockerImage = docker.getImage(imageName);
+        const stream = await dockerImage.get();
+        stream.pipe(writeStream, { end: true });
+        stream.on('data', (chunk) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Received ${chunk.length} bytes of data.`);
+          }
+        });
+        stream.on('end', () => {
+          resolve({ filename, messages });
+        });
+      } catch (e) {
+        messages.push(e.toString());
+        resolve({ filename, messages });
+      }
+    });
   }
 
   validate() {

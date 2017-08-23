@@ -1,4 +1,4 @@
-import { dialog } from '../../utils';
+import { Auth, dialog } from '../../utils';
 
 export const deleteUser = (context, id, name, isList = true) => {
   dialog.showQuestionDialog(
@@ -14,10 +14,4 @@ export const deleteUser = (context, id, name, isList = true) => {
   );
 };
 
-export const getRoles = () => (
-  {
-    ADMIN: 'admin',
-    CHANGE: 'change',
-    READ: 'read',
-  }
-);
+export const getRoles = () => (Auth.getRoles());

@@ -13,6 +13,7 @@ import {
   ButtonToolbar,
   ButtonGroup,
   Button,
+  Checkbox,
 } from 'react-bootstrap';
 
 import {
@@ -24,7 +25,7 @@ import {
   stopContainer,
 } from '../../actions/containers';
 import { fetchTemplates } from '../../actions/templates';
-import { dialog, tables, objects } from '../../utils';
+import { dialog, tables, validator } from '../../utils';
 
 import {
   deleteContainer as deleteContainerDialog,
@@ -32,7 +33,7 @@ import {
   stopContainer as stopContainerDialog,
 } from './methods';
 
-import { PageTitle, ModalSelect, Icon } from '../elements';
+import { PageTitle, ModalSelect, Icon, Spinner } from '../elements';
 
 const ContainerStatus = {
   RUNNIG: 'runnig',
@@ -41,28 +42,38 @@ const ContainerStatus = {
   LACKING: 'lacking',
 };
 
+const validateField = (data, field) => {
+  if (field === 'name') {
+    return validator.validateField('name', data.name, 'Name is required');
+  } else if (field === 'template' && !data.auto) {
+    return validator.validateField('template', data.template, 'Template is required');
+  }
+  return null;
+};
+
+const validate = data => (
+  validator.generateErrors([
+    validateField(data, 'name'),
+    validateField(data, 'template'),
+  ])
+);
+
 class Container extends Component {
   constructor(props) {
     super(props);
 
     this.mainUrl = '/containers';
     this.id = this.props.match.params.id;
+    this.shouldReceiveProps = false;
 
     this.state = {
       new: !this.id,
       modified: false,
       showSelect: false,
-      data: {
-        name: null,
-        image: null,
-        template: null,
-        status: !this.id ? ContainerStatus.LACKING : null,
-        containerId: null,
-        auto: null,
-      },
+      data: this.getDataById(this.props.containers.data),
+      e: {},
     };
 
-    this.getData = this.getData.bind(this);
     this.getDataById = this.getDataById.bind(this);
     this.goBack = this.goBack.bind(this);
     this.handleChange = this.handleChange.bind(this);
@@ -70,6 +81,7 @@ class Container extends Component {
     this.handleSave = this.handleSave.bind(this);
     this.handleSelectTemplate = this.handleSelectTemplate.bind(this);
     this.generateModalSelect = this.generateModalSelect.bind(this);
+    this.handleHideChange = this.handleHideChange.bind(this);
   }
 
   componentDidMount() {
@@ -79,36 +91,47 @@ class Container extends Component {
     }
   }
 
-  getData() {
-    const stateData = this.state.data;
-    let status = stateData.status;
-    const data = this.getDataById();
-    if (data) {
-      if (data.auto) {
-        status = data.status;
-      }
+  componentWillReceiveProps(nextProps) {
+    if (!nextProps.containers.propsReady) {
+      this.shouldReceiveProps = true;
     }
-    return objects.merge(data, { ...this.state.data, status });
+
+    if (this.shouldReceiveProps && nextProps.containers.propsReady) {
+      this.setState({ data: this.getDataById(nextProps.containers.data) });
+      this.shouldReceiveProps = false;
+    }
   }
 
-  getDataById() {
-    return tables.getTableElementById(this.props.containers.data, this.id) || {};
+  getDataById(table) {
+    return tables.getTableElementById(table, this.id) || {
+      name: '',
+      image: '',
+      template: '',
+      status: !this.id ? ContainerStatus.LACKING : '',
+      containerId: '',
+      auto: '',
+      hide: false,
+    };
   }
 
   goBack() {
     this.props.history.push(this.mainUrl);
   }
 
-  handleChange(e) {
-    if (typeof e === 'string') {
+  handleChange(event) {
+    if (typeof event === 'string') {
       this.setState({ showSelect: true });
     } else {
+      const name = event.target.name;
+      const data = {
+        ...this.state.data,
+        [name]: event.target.value,
+      };
+      const e = validator.generateNextErrorsState(this.state.e, name, validateField(data, name));
       this.setState({
         modified: true,
-        data: {
-          ...this.state.data,
-          [e.target.name]: e.target.value,
-        },
+        data,
+        e,
       });
     }
   }
@@ -121,29 +144,37 @@ class Container extends Component {
     }
   }
 
-  handleSave() {
-    if (this.state.new) {
-      this.id = uuid();
-      this.props.createContainer({ ...this.state.data, id: this.id });
+  async handleSave() {
+    const e = validate(this.state.data);
+    if (Object.keys(e).length !== 0) {
+      this.setState({ e });
     } else {
-      this.props.changeContainer(this.id, this.getData());
+      if (this.state.new) {
+        this.id = uuid();
+        await this.props.createContainer({ ...this.state.data, id: this.id });
+      } else {
+        await this.props.changeContainer(this.id, this.state.data);
+      }
+      this.props.fetchTemplates();
+      await this.props.fetchContainer(this.id);
+  
+      this.props.history.push(`${this.mainUrl}/${this.id}`);
+  
+      this.setState({ modified: false, new: false, e });
     }
-    this.props.fetchTemplates();
-    this.props.fetchContainer(this.id);
-
-    this.props.history.push(`${this.mainUrl}/${this.id}`);
-
-    this.setState({ modified: false, new: false });
   }
 
   handleSelectTemplate(template) {
+    const data = {
+      ...this.state.data,
+      template,
+    };
+    const e = validator.generateNextErrorsState(this.state.e, 'template', validateField(data, 'template'));
     this.setState({
       modified: true,
       showSelect: false,
-      data: {
-        ...this.state.data,
-        template,
-      },
+      data,
+      e,
     });
   }
 
@@ -158,12 +189,34 @@ class Container extends Component {
     );
   }
 
+  handleHideChange(e) {
+    const name = e.target.name;
+    let value = e.target.value;
+    if (name === 'hide') {
+      if (this.state.data.hide) {
+        value = false;
+      } else {
+        value = value === 'on';
+      }
+    }
+
+    this.setState({
+      modified: true,
+      data: {
+        ...this.state.data,
+        hide: value,
+      },
+    });
+  }
+
   render() {
+    const haveErrors = dialog.showError(this.props.containers, this.goBack);
+
     const { data: templates, isFetched: templatesIsFetched } = this.props.templates;
 
-    let elementToRender = 'Loading...';
-    if ((this.state.new || this.props.containers.isFetched) && templatesIsFetched) {
-      const data = this.getData();
+    let elementToRender = <Spinner />;
+    if ((this.state.new || this.props.containers.isFetched) && templatesIsFetched && !haveErrors) {
+      const { data, e } = this.state;
       const title = `${data.name} ${this.state.modified || this.state.new ? '*' : ''}`;
 
       const templateData = tables.getTableElementById(templates, data.template);
@@ -177,13 +230,14 @@ class Container extends Component {
         template = (
           <Row>
             <Col sm={12}>
-              <FormGroup controlId="template">
+              <FormGroup controlId="template" validationState={validator.getValidationState(e.template)}>
                 <ControlLabel>Template</ControlLabel>
                 <InputGroup>
                   <FormControl
                     type="text"
                     value={templateName}
-                    placeholder="Select template"
+                    placeholder={validator.getValidationMessage(e.template) || 'Select template'}
+                    onChange={() => {}}
                   />
                   <InputGroup.Addon onClick={() => this.handleChange('')}>...</InputGroup.Addon>
                 </InputGroup>
@@ -240,13 +294,13 @@ class Container extends Component {
             <form>
               <Row>
                 <Col sm={8}>
-                  <FormGroup controlId="name">
+                  <FormGroup controlId="name" validationState={validator.getValidationState(e.name)}>
                     <ControlLabel>Name</ControlLabel>
                     <FormControl
                       type="text"
                       value={data.name}
                       name="name"
-                      placeholder="Enter name"
+                      placeholder={validator.getValidationMessage(e.name) || 'Enter name'}
                       onChange={this.handleChange}
                     />
                   </FormGroup>
@@ -277,6 +331,18 @@ class Container extends Component {
                   </FormGroup>
                 </Col>
               </Row>
+
+              <Row>
+                <Col sm={1}>
+                  <Checkbox
+                    name="hide"
+                    checked={data.hide}
+                    onChange={this.handleHideChange}
+                  >
+                    Hiden
+                  </Checkbox>
+                </Col>
+              </Row>
             </form>
           </Grid>
 
@@ -298,6 +364,7 @@ Container.propTypes = {
   containers: PropTypes.shape({
     data: PropTypes.array.isRequired,
     isFetched: PropTypes.bool.isRequired,
+    propsReady: PropTypes.bool.isRequired,
   }).isRequired,
   templates: PropTypes.shape({
     data: PropTypes.array.isRequired,

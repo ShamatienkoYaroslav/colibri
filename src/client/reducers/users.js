@@ -32,6 +32,7 @@ const initialState = {
   e: null,
   loggedIn: Auth.tokenIsSet(),
   isFetched: false,
+  propsReady: false,
 };
 
 export default (state = initialState, action) => {
@@ -39,7 +40,11 @@ export default (state = initialState, action) => {
 
     // LOGIN
     case USER_LOGIN:
-      return state;
+      return {
+        ...state,
+        e: null,
+        isFetched: false,
+      };
     case USER_LOGIN_ERROR:
       return {
         ...state,
@@ -57,22 +62,31 @@ export default (state = initialState, action) => {
 
     // LOGOUT
     case USER_LOGOUT:
-      return state;
+      return {
+        ...state,
+        e: null,
+        isFetched: false,
+      };
     case USER_LOGOUT_ERROR:
       return {
         ...state,
         e: action.e,
+        isFetched: true,
       };
     case USER_LOGOUT_SUCCESS:
       return {
         ...state,
         loggedIn: action.loggedIn,
+        e: null,
+        isFetched: true,
       };
 
     // ALL
     case FETCH_USERS:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case FETCH_USERS_ERROR:
       return {
@@ -85,29 +99,40 @@ export default (state = initialState, action) => {
         ...state,
         data: action.data,
         isFetched: true,
+        e: null,
       };
 
     // ONE
     case FETCH_USER:
       return {
         ...state,
+        propsReady: false,
+        isFetched: false,
+        e: null,
       };
     case FETCH_USER_ERROR:
       return {
         ...state,
         e: action.e,
         isFetched: true,
+        propsReady: true,
       };
     case FETCH_USER_SUCCESS:
       return {
         ...state,
         data: updateData(state.data, action.data.user),
         isFetched: true,
+        propsReady: true,
+        e: null,
       };
 
     // CREATE
     case CREATE_USER:
-      return state;
+      return {
+        ...state,
+        e: null,
+        isFetched: false,
+      };
     case CREATE_USER_ERROR:
       return {
         ...state,
@@ -121,12 +146,16 @@ export default (state = initialState, action) => {
           ...state.data,
           action.data.user,
         ],
+        e: null,
+        isFetched: true,
       };
 
     // CHANGE
     case CHANGE_USER:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case CHANGE_USER_ERROR:
       return {
@@ -139,22 +168,28 @@ export default (state = initialState, action) => {
         ...state,
         data: updateData(state.data, action.data.user),
         isFetched: true,
+        e: null,
       };
 
     // DELETE
     case DELETE_USER:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case DELETE_USER_ERROR:
       return {
         ...state,
         e: action.e,
+        isFetched: true,
       };
     case DELETE_USER_SUCCESS:
       return {
         ...state,
         data: state.data.filter(element => element.id !== action.id),
+        e: null,
+        isFetched: true,
       };
 
     default:

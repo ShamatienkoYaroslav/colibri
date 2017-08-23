@@ -32,6 +32,7 @@ export default class Volume {
     this.type = args.type || Types.BIND;
     this.hostDir = args.hostDir || '';
     this.slug = slug(this.name);
+    this.hide = args.hide || false;
   }
 
   static getVolumes(showAll = true) {

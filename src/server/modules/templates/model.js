@@ -19,6 +19,7 @@ export default class Template {
     this.config = args.config; // https://docs.docker.com/engine/api/v1.30/#operation/ContainerCreate
     this.volumes = args.volumes || [];
     this.slug = slug(args.name);
+    this.hide = args.hide || false;
   }
 
   static getTemplates(showAll = true) {

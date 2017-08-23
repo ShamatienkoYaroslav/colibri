@@ -22,6 +22,7 @@ const initialState = {
   data: [],
   e: null,
   isFetched: false,
+  propsReady: false,
 };
 
 export default (state = initialState, action) => {
@@ -31,6 +32,8 @@ export default (state = initialState, action) => {
     case FETCH_TEMPLATES:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case FETCH_TEMPLATES_ERROR:
       return {
@@ -43,29 +46,40 @@ export default (state = initialState, action) => {
         ...state,
         data: action.data,
         isFetched: true,
+        e: null,
       };
 
     // ONE
     case FETCH_TEMPLATE:
       return {
         ...state,
+        propsReady: false,
+        e: null,
+        isFetched: false,
       };
     case FETCH_TEMPLATE_ERROR:
       return {
         ...state,
         e: action.e,
         isFetched: true,
+        propsReady: true,
       };
     case FETCH_TEMPLATE_SUCCESS:
       return {
         ...state,
         data: updateData(state.data, action.data.template),
         isFetched: true,
+        propsReady: true,
+        e: null,
       };
 
     // CREATE
     case CREATE_TEMPLATE:
-      return state;
+      return {
+        ...state,
+        e: null,
+        isFetched: false,
+      };
     case CREATE_TEMPLATE_ERROR:
       return {
         ...state,
@@ -79,12 +93,16 @@ export default (state = initialState, action) => {
           ...state.data,
           action.data.template,
         ],
+        e: null,
+        isFetched: true,
       };
 
     // CHANGE
     case CHANGE_TEMPLATE:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case CHANGE_TEMPLATE_ERROR:
       return {
@@ -97,22 +115,28 @@ export default (state = initialState, action) => {
         ...state,
         data: updateData(state.data, action.data.template),
         isFetched: true,
+        e: null,
       };
 
     // DELETE
     case DELETE_TEMPLATE:
       return {
         ...state,
+        e: null,
+        isFetched: false,
       };
     case DELETE_TEMPLATE_ERROR:
       return {
         ...state,
         e: action.e,
+        isFetched: true,
       };
     case DELETE_TEMPLATE_SUCCESS:
       return {
         ...state,
         data: state.data.filter(element => element.id !== action.id),
+        e: null,
+        isFetched: true,
       };
 
     default:

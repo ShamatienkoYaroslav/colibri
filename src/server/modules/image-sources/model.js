@@ -130,6 +130,7 @@ class ImageSource {
       user: this.user,
       password: crypt.decrypt(this.password),
       filename: this.filename,
+      hide: this.hide,
     };
   }
 }
